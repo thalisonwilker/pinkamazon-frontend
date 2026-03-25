@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
 
 export const metadata: Metadata = {
-  title: 'Pink Amazon - Wild, Bold & Proud',
+  title: 'Pink Amazon - Wild, Bold & Proud (Staging)',
   description: 'Sandálias criadas no coração da Amazônia com alma brasileira e atitude internacional. Ousadia, conforto e identidade em cada passo.',
   generator: 'v0.app',
   icons: {
