@@ -1,4 +1,4 @@
-name: Trigger Deployment
+name: Deploy to Production
 
 on:
   push:
@@ -7,21 +7,14 @@ on:
       - staging
 
 jobs:
-  trigger-get:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Webhook GET
+      - name: Trigger Deployment
         run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            URL="${{ vars.PRODUCTION_DEPLOY_URL || secrets.PRODUCTION_DEPLOY_URL }}"
-          else
-            URL="${{ vars.STAGING_DEPLOY_URL || secrets.STAGING_DEPLOY_URL }}"
-          fi
-          
+          URL="${{ vars.PRODUCTION_DEPLOY_URL || secrets.STAGING_DEPLOY_URL }}"
           if [[ -z "$URL" ]]; then
-            echo "Error: DEPLOY_URL is not set for branch ${{ github.ref_name }}"
+            echo "Error: PRODUCTION_DEPLOY_URL is not set"
             exit 1
           fi
-          
-          echo "Triggering GET request to $URL..."
           curl -s -X GET "$URL"
