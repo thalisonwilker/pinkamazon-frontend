@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2 } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2, Sparkles } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 
@@ -51,14 +51,41 @@ export default function RegisterPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
-    setFormData(prev => ({ ...prev, [id]: value }))
-    if (touched[id]) validateField(id, value)
+    let finalValue = value
+
+    // CPF restriction: numbers only and max 11 digits
+    if (id === "document") {
+      finalValue = value.replace(/\D/g, "").slice(0, 11)
+    }
+
+    setFormData(prev => ({ ...prev, [id]: finalValue }))
+    if (touched[id]) validateField(id, finalValue)
   }
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const { id, value } = e.target
     setTouched(prev => ({ ...prev, [id]: true }))
     validateField(id, value)
+  }
+
+  const handleGeneratePassword = () => {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+    const length = 14
+    let retVal = ""
+    for (let i = 0, n = charset.length; i < length; ++i) {
+      retVal += charset.charAt(Math.floor(Math.random() * n))
+    }
+    
+    setFormData(prev => ({ ...prev, password: retVal, confirmPassword: retVal }))
+    setShowPassword(true) // Show the generated password
+    
+    // Clear errors for these fields
+    setFieldErrors(prev => ({ ...prev, password: "", confirmPassword: "" }))
+    
+    toast({
+      title: "Senha gerada!",
+      description: "Uma senha segura foi gerada para você.",
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,7 +282,17 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-xs font-bold uppercase text-foreground/70">Senha</label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label htmlFor="password" className="block text-xs font-bold uppercase text-foreground/70">Senha</label>
+                <button 
+                  type="button" 
+                  onClick={handleGeneratePassword}
+                  className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-primary transition-all hover:opacity-70"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Gerar Senha
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -313,6 +350,7 @@ export default function RegisterPage() {
                   onBlur={handleBlur}
                   placeholder="000.000.000-00"
                   required
+                  maxLength={11}
                   className={`w-full rounded-xl border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("document")}`}
                 />
               </div>

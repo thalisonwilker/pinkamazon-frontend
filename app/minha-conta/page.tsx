@@ -504,7 +504,10 @@ function AccountContent() {
             {navItems.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => {
+                  setActiveTab(id)
+                  window.scrollTo({ top: 0, behavior: "smooth" })
+                }}
                 className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                   activeTab === id
                     ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
