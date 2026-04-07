@@ -29,20 +29,24 @@ export interface Category {
 }
 
 export async function getProducts(category?: string): Promise<Product[]> {
-  const path = category ? `/api/products/products/?category=${category}` : "/api/products/products/"
-  return apiFetch<Product[]>(path)
+  const path = category ? `/api/v1/products/?category=${category}` : "/api/v1/products/"
+  const response = await apiFetch<any>(path)
+  return response?.data?.results || response?.results || response?.data || response || []
 }
 
 export async function getProductById(id: string): Promise<Product> {
-  return apiFetch<Product>(`/api/products/products/${id}/`)
+  const response = await apiFetch<any>(`/api/v1/products/${id}/`)
+  return response?.data?.results || response?.data || response
 }
 
 export async function getProductBySlug(slug: string): Promise<Product> {
-  return apiFetch<Product>(`/api/products/products/${slug}/`)
+  const response = await apiFetch<any>(`/api/v1/products/${slug}/`)
+  return response?.data?.results || response?.data || response
 }
 
 export async function getCategories(): Promise<Category[]> {
-  return apiFetch<Category[]>("/api/products/categories/")
+  const response = await apiFetch<any>("/api/v1/categories/")
+  return response?.data?.results || response?.data || response || []
 }
 
 export function formatPrice(value: number): string {

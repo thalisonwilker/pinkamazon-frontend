@@ -1,0 +1,22 @@
+# API Routes for Users
+
+## Rotas para gerenciamento de usuários (Clientes)
+
+# Listar todos os usuários/clientes
+GET /api/users
+
+# Obter um usuário/cliente específico pelo ID
+GET /api/users/{id}
+
+# Criar um novo usuário/cliente (cadastro)
+POST /api/users
+
+# Atualizar os dados de um usuário/cliente
+PUT /api/users/{id}
+PATCH /api/users/{id}
+
+# Deletar um usuário/cliente
+DELETE /api/users/{id}
+
+# Buscar por usuários/clientes
+GET /api/users/search?q={termo_de_busca}

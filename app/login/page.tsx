@@ -6,20 +6,20 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
 
   const router = useRouter()
   const { login } = useAuth()
+  const { toast } = useToast()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
     setLoading(true)
     
     const result = await login(email, password)
@@ -31,7 +31,14 @@ export default function LoginPage() {
         router.push("/minha-conta")
       }
     } else {
-      setError(result.error ?? "Erro ao entrar. Verifique suas credenciais.")
+      const errorObj = result.error
+      const message = (errorObj && typeof errorObj === 'object' ? errorObj.message : errorObj) || "Erro ao entrar. Verifique suas credenciais."
+      
+      toast({
+        variant: "destructive",
+        title: "Erro no login",
+        description: message,
+      })
       setLoading(false)
     }
   }
@@ -54,18 +61,6 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-muted-foreground">Entre com sua conta para continuar comprando</p>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
-          {/* Hint */}
-          <div className="mb-5 flex flex-col gap-1 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-            <div><span className="font-semibold text-primary">Conta Cliente:</span> cliente@email.com / senha: 123</div>
-            <div><span className="font-semibold text-primary">Conta Admin:</span> admin@email.com / senha: 123</div>
-          </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">

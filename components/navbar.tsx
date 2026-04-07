@@ -68,14 +68,16 @@ export function Navbar() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black/20">
                   <User className="h-4 w-4 text-white" />
                 </div>
-                <span className="text-sm">{user.name.split(" ")[0]}</span>
+                <span className="text-sm">{user.first_name || user.email.split("@")[0]}</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
               </button>
 
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
                   <div className="border-b border-border px-4 py-3">
-                     <p className="text-sm font-bold text-foreground">{user.name}</p>
+                     <p className="text-sm font-bold text-foreground">
+                       {user.first_name} {user.last_name}
+                     </p>
                      <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   <div className="py-1">

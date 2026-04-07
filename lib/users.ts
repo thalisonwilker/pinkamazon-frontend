@@ -22,11 +22,11 @@ export type User = {
 };
 
 export async function getAllUsers(): Promise<User[]> {
-  // Assuming a customer list endpoint exists or using user list
-  const res = await apiFetch<User>("/api/users/profile/", { requiresAuth: true })
-  return [res] // Quick fallback for now
+  const response = await apiFetch<any>("/api/v1/users/", { requiresAuth: true })
+  return response?.data?.results || response?.results || response?.data || response || []
 }
 
 export async function getUserById(id: string): Promise<User> {
-  return apiFetch<User>(`/api/users/profile/`, { requiresAuth: true })
+  const response = await apiFetch<any>("/api/v1/users/me/", { requiresAuth: true })
+  return response?.data || response
 }

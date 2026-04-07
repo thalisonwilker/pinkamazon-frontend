@@ -6,36 +6,79 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+
 
 export default function RegisterPage() {
   const router = useRouter()
   const { register } = useAuth()
+  const { toast } = useToast()
   
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    document: ""
   })
   
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const getInputErrorClass = (id: string) => {
+    return touched[id] && fieldErrors[id] 
+      ? "border-red-500 focus:border-red-500 focus:ring-red-500/10" 
+      : "border-border focus:border-primary focus:ring-primary/10"
+  }
+
+  const validateField = (name: string, value: string) => {
+    let err = ""
+    if (!value && name !== "confirmPassword") err = "Campo obrigatório"
+    else if (name === "email" && !/\S+@\S+\.\S+/.test(value)) err = "E-mail inválido"
+    else if (name === "password" && value.length < 8) err = "Mínimo de 8 caracteres"
+    else if (name === "confirmPassword") {
+      if (!value) err = "Confirme sua senha"
+      else if (value !== formData.password) err = "As senhas não coincidem"
+    } else if (name === "document" && value.length < 11) err = "CPF inválido"
+    
+    setFieldErrors(prev => ({ ...prev, [name]: err }))
+    return !err
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
     setFormData(prev => ({ ...prev, [id]: value }))
+    if (touched[id]) validateField(id, value)
+  }
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { id, value } = e.target
+    setTouched(prev => ({ ...prev, [id]: true }))
+    validateField(id, value)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
     
-    // Simple validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem.")
+    // Full validation
+    const fields = Object.keys(formData)
+    let isFormValid = true
+    fields.forEach(field => {
+      const isValid = validateField(field, (formData as any)[field])
+      if (!isValid) isFormValid = false
+      setTouched(prev => ({ ...prev, [field]: true }))
+    })
+
+    if (!isFormValid) {
+      toast({
+        variant: "destructive",
+        title: "Campos incorretos",
+        description: "Por favor, verifique os campos marcados em vermelho.",
+      })
       return
     }
 
@@ -52,7 +95,35 @@ export default function RegisterPage() {
         router.push("/minha-conta")
       }, 2000)
     } else {
-      setError(result.error ?? "Erro ao criar conta.")
+      const errorObj = result.error
+      let finalMessage = "Erro ao criar conta."
+      
+      // If it's a structured ApiError
+      if (errorObj && typeof errorObj === 'object') {
+        finalMessage = errorObj.message || finalMessage
+        
+        // Populate field-specific errors if available
+        if (errorObj.data && errorObj.data.errors && Array.isArray(errorObj.data.errors)) {
+          const newFieldErrors: Record<string, string> = { ...fieldErrors }
+          const newTouched: Record<string, boolean> = { ...touched }
+          
+          errorObj.data.errors.forEach((err: any) => {
+            if (err.field) {
+              newFieldErrors[err.field] = err.message
+              newTouched[err.field] = true
+            }
+          })
+          
+          setFieldErrors(newFieldErrors)
+          setTouched(newTouched)
+        }
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Erro no cadastro",
+        description: finalMessage,
+      })
       setLoading(false)
     }
   }
@@ -120,16 +191,9 @@ export default function RegisterPage() {
             <p className="mt-2 text-sm text-muted-foreground">Preencha os dados abaixo para começar</p>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="mb-6 animate-in fade-in slide-in-from-top-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p className="font-semibold">Ocorreu um erro:</p>
-              <p>{error}</p>
-            </div>
-          )}
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="first_name" className="mb-1.5 block text-xs font-bold uppercase text-foreground/70">Nome</label>
@@ -140,11 +204,15 @@ export default function RegisterPage() {
                     type="text"
                     value={formData.first_name}
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     placeholder="Nome"
                     required
-                    className="w-full rounded-xl border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                    className={`w-full rounded-xl border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("first_name")}`}
                   />
                 </div>
+                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.first_name && fieldErrors.first_name ? "text-red-500" : "text-muted-foreground"}`}>
+                  {fieldErrors.first_name || "Seu primeiro nome"}
+                </p>
               </div>
               <div>
                 <label htmlFor="last_name" className="mb-1.5 block text-xs font-bold uppercase text-foreground/70">Sobrenome</label>
@@ -154,11 +222,15 @@ export default function RegisterPage() {
                     type="text"
                     value={formData.last_name}
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     placeholder="Sobrenome"
                     required
-                    className="w-full rounded-xl border border-border bg-background py-3 px-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                    className={`w-full rounded-xl border bg-background py-3 px-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("last_name")}`}
                   />
                 </div>
+                <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.last_name && fieldErrors.last_name ? "text-red-500" : "text-muted-foreground"}`}>
+                  {fieldErrors.last_name || "Seu sobrenome"}
+                </p>
               </div>
             </div>
 
@@ -171,11 +243,15 @@ export default function RegisterPage() {
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="seu@exemplo.com"
                   required
-                  className="w-full rounded-xl border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  className={`w-full rounded-xl border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("email")}`}
                 />
               </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.email && fieldErrors.email ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.email || "Seu melhor e-mail para contato"}
+              </p>
             </div>
 
             <div>
@@ -187,9 +263,10 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border border-border bg-background py-3 pl-11 pr-12 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  className={`w-full rounded-xl border bg-background py-3 pl-11 pr-12 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("password")}`}
                 />
                 <button
                   type="button"
@@ -199,6 +276,9 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.password && fieldErrors.password ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.password || "Mínimo de 8 caracteres"}
+              </p>
             </div>
 
             <div>
@@ -210,11 +290,35 @@ export default function RegisterPage() {
                   type={showPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-xl border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  className={`w-full rounded-xl border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("confirmPassword")}`}
                 />
               </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.confirmPassword && fieldErrors.confirmPassword ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.confirmPassword || "Repita a senha escolhida"}
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="document" className="mb-1.5 block text-xs font-bold uppercase text-foreground/70">CPF</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  id="document"
+                  type="text"
+                  value={formData.document}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  placeholder="000.000.000-00"
+                  required
+                  className={`w-full rounded-xl border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:outline-none focus:ring-4 transition-all ${getInputErrorClass("document")}`}
+                />
+              </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.document && fieldErrors.document ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.document || "Seu CPF para segurança da conta"}
+              </p>
             </div>
 
             <div className="mt-2 flex items-start gap-3">

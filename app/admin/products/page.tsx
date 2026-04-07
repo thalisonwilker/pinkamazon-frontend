@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Search, Plus, Edit2, Trash2, Package } from "lucide-react"
 import { getProducts, formatPrice, type Product } from "@/lib/products"
 
@@ -42,10 +43,13 @@ export default function ProductsAdminPage() {
             className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-transform hover:scale-105">
+        <Link 
+          href="/admin/products/create"
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md transition-transform hover:scale-105"
+        >
           <Plus className="h-4 w-4" />
           Novo Produto
-        </button>
+        </Link>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -89,9 +93,12 @@ export default function ProductsAdminPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                       <button className="rounded p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary">
+                       <Link 
+                        href={`/admin/product/${product.id}/update`}
+                        className="rounded p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary inline-flex items-center"
+                      >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </Link>
                       <button className="rounded p-2 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500">
                         <Trash2 className="h-4 w-4" />
                       </button>

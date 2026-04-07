@@ -28,15 +28,17 @@ export interface Order {
 }
 
 export async function getOrders(): Promise<Order[]> {
-  return apiFetch<Order[]>("/api/orders/orders/", { requiresAuth: true })
+  const response = await apiFetch<any>("/api/v1/orders/", { requiresAuth: true })
+  return response?.data?.results || response?.results || response?.data || response || []
 }
 
 export async function getOrderById(id: string): Promise<Order> {
-  return apiFetch<Order>(`/api/orders/orders/${id}/`, { requiresAuth: true })
+  const response = await apiFetch<any>(`/api/v1/orders/${id}/`, { requiresAuth: true })
+  return response?.data || response
 }
 
 export async function payOrder(id: string, provider: string): Promise<any> {
-  return apiFetch(`/api/orders/orders/${id}/pay/`, {
+  return apiFetch(`/api/v1/orders/${id}/pay/`, {
     method: "POST",
     body: { provider },
     requiresAuth: true

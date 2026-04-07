@@ -9,27 +9,30 @@ export interface User {
   username?: string
   first_name?: string
   last_name?: string
-  name: string
   email: string
   phone?: string
-  cpf?: string
-  birthdate?: string
-  is_active?: boolean
-  is_staff?: boolean
-  promo_emails?: boolean
-  order_updates?: boolean
-  wishlist_notifications?: boolean
-  document?: {
+  document?: string | {
     doc_type: string
     doc_number: string
     country: string
+  }
+  vip_points?: number
+  is_active?: boolean
+  is_staff?: boolean
+  date_joined?: string
+  created_at?: string
+  updated_at?: string
+  preferences?: {
+    promotional_emails?: boolean
+    order_updates?: boolean
+    wishlist_notifications?: boolean
   }
 }
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>
-  register: (data: any) => Promise<{ success: boolean; user?: User; error?: string }>
+  login: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: any }>
+  register: (data: any) => Promise<{ success: boolean; user?: User; error?: any }>
   logout: () => void
   fetchMe: () => Promise<void>
   isAuthenticated: boolean
@@ -40,6 +43,24 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 const ACCESS_TOKEN_KEY = "accessToken"
 const REFRESH_TOKEN_KEY = "refreshToken"
+const USER_ID_KEY = "userId"
+
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split(".")[1]
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    )
+    return JSON.parse(jsonPayload)
+  } catch (error) {
+    console.error("JWT Decode error:", error)
+    return null
+  }
+}
 
 function getStoredToken(key: string) {
   if (typeof window === "undefined") return null
@@ -58,8 +79,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchMe = async () => {
     try {
-      const data = await apiFetch<User>("/api/users/me/", { requiresAuth: true })
+      const token = getStoredToken(ACCESS_TOKEN_KEY)
+      if (!token) throw new Error("No token found")
+
+      let userId = getStoredToken(USER_ID_KEY)
+      
+      // If no ID in storage, try to decode from token
+      if (!userId) {
+        const decoded = decodeJwt(token)
+        userId = decoded?.user_id || decoded?.id || decoded?.sub
+      }
+
+      if (!userId) {
+        // Fallback to /me if no ID can be found, or handle as error
+        console.warn("Could not determine user ID from token, falling back to /me")
+      }
+
+      const url = userId ? `/api/v1/users/${userId}/` : "/api/v1/users/me/"
+      const data = await apiFetch<User>(url, { requiresAuth: true })
+      
       setUser(data)
+      
+      // Persist the ID if we just got it
+      if (data.id) {
+        setStoredToken(USER_ID_KEY, data.id.toString())
+      }
     } catch (error) {
       console.error("Session recovery failed:", error)
       setUser(null)
@@ -83,11 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       const { access, refresh } = await apiFetch<{ access: string; refresh: string }>(
-        "/api/auth/token/",
+        "/api/v1/auth/login/",
         {
           method: "POST",
           body: {
-            username: email,
+            email, // Use email instead of username
             password,
           },
         }
@@ -96,30 +140,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredToken(ACCESS_TOKEN_KEY, access)
       setStoredToken(REFRESH_TOKEN_KEY, refresh)
 
-      const userData = await apiFetch<User>("/api/users/me/", { requiresAuth: true })
+      // Get user ID from token to call the right endpoint
+      const decoded = decodeJwt(access)
+      const userId = decoded?.user_id || decoded?.id || decoded?.sub
+      
+      const url = userId ? `/api/v1/users/${userId}/` : "/api/v1/users/me/"
+      const userData = await apiFetch<User>(url, { requiresAuth: true })
+      
       setUser(userData)
+      if (userData.id) {
+        setStoredToken(USER_ID_KEY, userData.id.toString())
+      }
 
       return { success: true, user: userData }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: error as any }
     }
   }
 
   const register = async (data: any) => {
     try {
-      await apiFetch("/api/users/", {
+      // Use the new registration endpoint in v1
+      const { confirmPassword, ...rest } = data
+      const payload = {
+        ...rest,
+        password_confirm: confirmPassword,
+        // Ensure username is present (fallback to email if not provided)
+        username: data.username || data.email
+      }
+
+      const userData = await apiFetch<User>("/api/v1/users/", {
         method: "POST",
-        body: data,
+        body: payload,
       })
-      
+
+      if (userData.id) {
+        setStoredToken(USER_ID_KEY, userData.id.toString())
+      }
+
       // Optionally auto-login after register
       if (data.email && data.password) {
         return await login(data.email, data.password)
       }
-      
-      return { success: true }
+
+      return { success: true, user: userData }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: error as any }
     }
   }
 
@@ -127,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setStoredToken(ACCESS_TOKEN_KEY, null)
     setStoredToken(REFRESH_TOKEN_KEY, null)
+    setStoredToken(USER_ID_KEY, null)
   }
 
   return (

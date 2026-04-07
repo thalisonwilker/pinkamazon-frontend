@@ -6,6 +6,17 @@ export type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {
   requiresAuth?: boolean
 }
 
+export class ApiError extends Error {
+  constructor(
+    public message: string,
+    public status: number,
+    public data: any = null
+  ) {
+    super(message)
+    this.name = "ApiError"
+  }
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   { body, requiresAuth, ...init }: ApiFetchOptions = {}
@@ -38,24 +49,53 @@ export async function apiFetch<T = unknown>(
 
     if (!response.ok) {
       const contentType = response.headers.get("content-type") ?? ""
-      let message = await response.text()
+      const text = await response.text()
+      let message = ""
+      let data = null
 
-      if (contentType.includes("application/json")) {
+      // Try to parse as JSON regardless of content-type if it looks like JSON
+      if (contentType.includes("application/json") || text.trim().startsWith("{")) {
         try {
-          const json = await response.json()
-          if (json && typeof json === "object") {
-            if ("detail" in json) message = (json as any).detail
-            else message = JSON.stringify(json)
+          data = JSON.parse(text)
+          if (data && typeof data === "object") {
+            if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+              message = data.errors.map((e: any) => e.message || JSON.stringify(e)).join(" ")
+            } else if (data.detail) {
+              message = data.detail
+            } else if (data.message) {
+              message = data.message
+            } else if (data.non_field_errors && Array.isArray(data.non_field_errors)) {
+              message = data.non_field_errors.join(" ")
+            } else {
+              // Extract all other field errors
+              const fieldErrors = Object.entries(data)
+                .filter(([key]) => !["success", "data", "errors"].includes(key))
+                .map(([key, val]) => {
+                  const valStr = Array.isArray(val) ? val.join(" ") : String(val)
+                  return valStr
+                })
+              if (fieldErrors.length > 0) message = fieldErrors.join(" ")
+            }
           }
         } catch {
-          // keep original text if parsing fails
+          // ignore parsing error
+          console.error("Error parsing JSON response", text)
         }
       }
 
-      throw new Error(`Request failed (${response.status}): ${message}`)
+      if (!message) message = text || `Request failed (${response.status})`
+
+      throw new ApiError(message, response.status, data)
     }
 
-    return (await response.json()) as T
+    const json = (await response.json()) as any
+    
+    // Auto-unwrap the 'data' key if it exists in a successful response
+    if (json && typeof json === "object" && json.success === true && "data" in json) {
+      return json.data as T
+    }
+
+    return json as T
   } finally {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("api-loading-stop"))

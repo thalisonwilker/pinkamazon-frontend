@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
 import { getOrders, statusLabel, statusColor, type Order } from "@/lib/orders"
 import { formatPrice } from "@/lib/products"
 import { ClientLayout } from "@/components/client-layout"
@@ -163,15 +164,17 @@ function OrderCard({ order }: { order: Order }) {
 function AccountContent() {
   const router = useRouter()
   const { user, logout, isLoading, fetchMe } = useAuth()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>("pedidos")
   const [orders, setOrders] = useState<Order[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   
   const [profileData, setProfileData] = useState({
-    name: user?.name ?? "",
+    first_name: user?.first_name ?? "",
+    last_name: user?.last_name ?? "",
     email: user?.email ?? "",
     phone: user?.phone ?? "",
-    cpf: user?.document?.doc_number ?? "",
+    cpf: (typeof user?.document === 'string' ? user?.document : user?.document?.doc_number) ?? "",
     birthdate: user?.birthdate ?? "",
   })
   const [profileSaved, setProfileSaved] = useState(false)
@@ -190,7 +193,7 @@ function AccountContent() {
   const [addressFormData, setAddressFormData] = useState({
     id: null as number | null,
     label: "Casa",
-    recipient: user?.name ?? "",
+    recipient: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "",
     zip_code: "",
     street: "",
     number: "",
@@ -206,7 +209,8 @@ function AccountContent() {
   const fetchAddresses = async () => {
     try {
       const { apiFetch } = await import("@/lib/api")
-      const data = await apiFetch("/api/addresses/", { requiresAuth: true }) as any[]
+      const res = await apiFetch("/api/v1/addresses/", { requiresAuth: true }) as any
+      const data = res?.data?.results || res?.results || res?.data || res || []
       setAddresses(data)
     } catch (error) {
       console.error("Erro ao carregar endereços:", error)
@@ -226,7 +230,8 @@ function AccountContent() {
     setIsSearchingZip(true)
     try {
       const { apiFetch } = await import("@/lib/api")
-      const data = await apiFetch(`/api/addresses/lookup-zip/${cleanZip}/`, { requiresAuth: true }) as any
+      const res = await apiFetch(`/api/v1/addresses/lookup-zip/${cleanZip}/`, { requiresAuth: true }) as any
+      const data = res?.data || res
       setAddressFormData(prev => ({
         ...prev,
         zip_code: data.zip_code,
@@ -249,8 +254,8 @@ function AccountContent() {
     try {
       const { apiFetch } = await import("@/lib/api")
       const isEditing = !!addressFormData.id
-      const method = isEditing ? "PATCH" : "POST"
-      const url = isEditing ? `/api/addresses/${addressFormData.id}/` : "/api/addresses/"
+      const method = isEditing ? "PUT" : "POST"
+      const url = isEditing ? `/api/v1/addresses/${addressFormData.id}/` : "/api/v1/addresses/"
       
       await apiFetch(url, {
         method,
@@ -262,7 +267,11 @@ function AccountContent() {
       fetchAddresses()
     } catch (error) {
       console.error("Erro ao salvar endereço:", error)
-      alert("Erro ao salvar endereço. Verifique os dados.")
+      toast({
+        variant: "destructive",
+        title: "Erro no endereço",
+        description: (error as Error).message || "Erro ao salvar endereço. Verifique os dados.",
+      })
     } finally {
       setIsSavingAddress(false)
     }
@@ -273,7 +282,7 @@ function AccountContent() {
     
     try {
       const { apiFetch } = await import("@/lib/api")
-      await apiFetch(`/api/addresses/${id}/`, {
+      await apiFetch(`/api/v1/addresses/${id}/`, {
         method: "DELETE",
         requiresAuth: true
       })
@@ -287,7 +296,7 @@ function AccountContent() {
     setAddressFormData({
       id: null,
       label: "Casa",
-      recipient: user?.name ?? "",
+      recipient: user?.first_name ? `${user.first_name} ${user.last_name || ""}`.trim() : "",
       zip_code: "",
       street: "",
       number: "",
@@ -322,16 +331,17 @@ function AccountContent() {
   useEffect(() => {
     if (user) {
       setProfileData({
-        name: user.name ?? "",
+        first_name: user.first_name ?? "",
+        last_name: user.last_name ?? "",
         email: user.email ?? "",
         phone: user.phone ?? "",
-        cpf: user.document?.doc_number ?? "",
+        cpf: (typeof user.document === 'string' ? user.document : user.document?.doc_number) ?? "",
         birthdate: user.birthdate ?? "",
       })
       setNotificationSettings({
-        promo_emails: user.promo_emails ?? true,
-        order_updates: user.order_updates ?? true,
-        wishlist_notifications: user.wishlist_notifications ?? true,
+        promo_emails: user.preferences?.promotional_emails ?? true,
+        order_updates: user.preferences?.order_updates ?? true,
+        wishlist_notifications: user.preferences?.wishlist_notifications ?? true,
       })
       
       // Fetch orders
@@ -373,10 +383,12 @@ function AccountContent() {
     
     try {
       const { apiFetch } = await import("@/lib/api")
-      await apiFetch("/api/users/me/", {
-        method: "PATCH",
+      const url = user?.id ? `/api/v1/users/${user.id}/` : "/api/v1/users/me/"
+      await apiFetch(url, {
+        method,
         body: {
-          name: profileData.name,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
           email: profileData.email,
           phone: profileData.phone,
           birthdate: profileData.birthdate || null,
@@ -394,7 +406,11 @@ function AccountContent() {
       setTimeout(() => setProfileSaved(false), 2500)
     } catch (error) {
       console.error("Erro ao salvar perfil:", error)
-      alert("Erro ao salvar perfil. Verifique os dados e tente novamente.")
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar perfil",
+        description: (error as Error).message || "Erro ao salvar perfil. Verifique os dados e tente novamente.",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -405,19 +421,24 @@ function AccountContent() {
     
     setUpdatingNotification(key)
     const newValue = !notificationSettings[key]
+    const settingsData = { ...notificationSettings, [key]: newValue }
     
     try {
       const { apiFetch } = await import("@/lib/api")
-      await apiFetch("/api/users/notifications/", {
+      await apiFetch("/api/v1/users/profile/notifications/", {
         method: "PATCH",
-        body: { [key]: newValue },
+        body: settingsData,
         requiresAuth: true
       })
       
       setNotificationSettings(prev => ({ ...prev, [key]: newValue }))
     } catch (error) {
       console.error("Erro ao atualizar notificações:", error)
-      alert("Erro ao salvar configuração. Tente novamente.")
+      toast({
+        variant: "destructive",
+        title: "Erro de configuração",
+        description: (error as Error).message || "Erro ao salvar configuração. Tente novamente.",
+      })
     } finally {
       setUpdatingNotification(null)
     }
@@ -438,7 +459,7 @@ function AccountContent() {
         <h1 className="text-2xl font-extrabold uppercase tracking-tight text-foreground md:text-3xl">
           Minha Conta
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">Olá, {user.name.split(" ")[0]}! Gerencie seus pedidos e dados.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Olá, {user.first_name}! Gerencie seus pedidos e dados.</p>
       </div>
 
       <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
@@ -452,7 +473,9 @@ function AccountContent() {
                 <User className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <p className="font-bold text-foreground">{user.name}</p>
+                <p className="font-bold text-foreground">
+                  {user.first_name} {user.last_name}
+                </p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
               <div className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
@@ -588,7 +611,9 @@ function AccountContent() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-foreground">{user.name}</h2>
+                      <h2 className="text-base font-bold text-foreground">
+                        {user.first_name} {user.last_name}
+                      </h2>
                       <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                         <BadgeCheck className="h-3 w-3" /> Verificado
                       </span>
@@ -619,14 +644,39 @@ function AccountContent() {
                   </div>
                   <form onSubmit={handleSaveProfile} className="p-6">
                     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                       <div className="sm:col-span-1">
+                          <label htmlFor="first_name" className="mb-2 block text-sm font-semibold text-foreground">Nome</label>
+                          <div className="relative">
+                            <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                              id="first_name"
+                              type="text"
+                              value={profileData.first_name}
+                              onChange={(e) => setProfileData((p) => ({ ...p, first_name: e.target.value }))}
+                              className="w-full rounded-lg border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          </div>
+                        </div>
+                        <div className="sm:col-span-1">
+                          <label htmlFor="last_name" className="mb-2 block text-sm font-semibold text-foreground">Sobrenome</label>
+                          <div className="relative">
+                            <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                              id="last_name"
+                              type="text"
+                              value={profileData.last_name}
+                              onChange={(e) => setProfileData((p) => ({ ...p, last_name: e.target.value }))}
+                              className="w-full rounded-lg border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          </div>
+                        </div>
                       {[
-                        { id: "name", label: "Nome completo", type: "text", key: "name" as const, icon: User },
                         { id: "email", label: "E-mail", type: "email", key: "email" as const, icon: Mail },
                         { id: "phone", label: "Telefone", type: "tel", key: "phone" as const, icon: Phone },
                         { id: "cpf", label: "CPF", type: "text", key: "cpf" as const, icon: BadgeCheck },
                         { id: "birthdate", label: "Data de nascimento", type: "date", key: "birthdate" as const, icon: Calendar },
                       ].map(({ id, label, type, key, icon: Icon }) => (
-                        <div key={id} className={id === "name" ? "sm:col-span-2" : ""}>
+                        <div key={id}>
                           <label htmlFor={id} className="mb-2 block text-sm font-semibold text-foreground">{label}</label>
                           <div className="relative">
                             <Icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

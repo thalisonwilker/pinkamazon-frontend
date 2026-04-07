@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Save, Image as ImageIcon, Trash2, ArrowLeft, UploadCloud } from "lucide-react"
 import Link from "next/link"
 
-export default function NewProductAdminPage() {
+export default function CreateProductAdminPage() {
   const [activeTab, setActiveTab] = useState("basico")
   const [sizes] = useState([34, 35, 36, 37, 38, 39, 40])
   const [selectedSizes, setSelectedSizes] = useState<number[]>([35, 36, 37, 38])
