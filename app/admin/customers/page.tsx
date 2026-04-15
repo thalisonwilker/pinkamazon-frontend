@@ -23,7 +23,7 @@ export default function CustomersAdminPage() {
   )
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6 w-full">
       {/* KPI mini-cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -70,7 +70,7 @@ export default function CustomersAdminPage() {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-6 py-4 font-semibold">Cliente</th>

@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import useEmblaCarousel from "embla-carousel-react"
 import Autoplay from "embla-carousel-autoplay"
-import { getProducts, type Product } from "@/lib/products"
+import { getProducts, getProductImageUrl, getProductStoreHref, type Product } from "@/lib/products"
 
 export function LifestyleSlider() {
   const [products, setProducts] = useState<Product[]>([])
@@ -27,9 +27,9 @@ export function LifestyleSlider() {
             <div key={item.id} className="embla__slide relative h-[70vh] min-w-0 flex-[0_0_100%] md:h-[85vh]">
               {/* Main Image - Full Bleed to remove "borders" */}
               <div className="absolute inset-0 z-10 h-full w-full">
-                {item.images?.[0]?.image && (
+                {getProductImageUrl(item) && (
                   <Image
-                    src={item.images[0].image}
+                    src={getProductImageUrl(item) as string}
                     alt={item.name}
                     fill
                     className="object-cover"
@@ -46,7 +46,7 @@ export function LifestyleSlider() {
                   </h4>
                   
                   <Link
-                    href={`/produto/${item.id}`}
+                    href={getProductStoreHref(item)}
                     className="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3.5 text-[13px] font-bold tracking-widest uppercase text-white transition-all hover:bg-primary/90 hover:scale-105 shadow-xl shadow-primary/20"
                   >
                     Comprar Agora

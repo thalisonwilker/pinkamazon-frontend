@@ -37,7 +37,7 @@ export default function PaymentsAdminPage() {
   }
   
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6 w-full">
       {/* Payments KPI */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">

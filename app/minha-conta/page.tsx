@@ -488,8 +488,8 @@ function AccountContent() {
             <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
               {[
                 { label: "Pedidos", value: orders.length },
-                { label: "Favoritos", value: "5" },
-                { label: "Pts VIP", value: "1.240" },
+                { label: "Favoritos", value: mockFavorites.length },
+                { label: "Pts VIP", value: user?.vip_points || 0 },
               ].map(({ label, value }) => (
                 <div key={label} className="flex flex-col items-center py-3 px-2">
                   <p className="text-base font-extrabold text-foreground">{value}</p>
@@ -551,14 +551,8 @@ function AccountContent() {
                     <Gift className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-foreground">Você tem <span className="text-primary">1.240 pontos VIP</span></p>
-                    <p className="text-xs text-muted-foreground">Faltam 760 pontos para o nível Diamante. Continue comprando!</p>
-                  </div>
-                  <div className="hidden sm:block">
-                    <div className="h-2 w-36 overflow-hidden rounded-full bg-border">
-                      <div className="h-full w-[62%] rounded-full bg-primary" />
-                    </div>
-                    <p className="mt-1 text-right text-[10px] text-muted-foreground">1.240 / 2.000</p>
+                    <p className="text-sm font-bold text-foreground">Você tem <span className="text-primary">{user?.vip_points || 0} pontos VIP</span></p>
+                    <p className="text-xs text-muted-foreground">Continue comprando para ganhar mais!</p>
                   </div>
                 </div>
 

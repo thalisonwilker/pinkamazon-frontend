@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import { apiFetch } from "./api"
 
+const AUTH_STORAGE_CHANGED_EVENT = "pinkamazon-auth-storage-changed"
+
 export interface User {
   id?: string
   username?: string
@@ -67,20 +69,32 @@ function getStoredToken(key: string) {
   return localStorage.getItem(key)
 }
 
+function hasSavedCredentials() {
+  return !!(getStoredToken(ACCESS_TOKEN_KEY) || getStoredToken(REFRESH_TOKEN_KEY))
+}
+
 function setStoredToken(key: string, value: string | null) {
   if (typeof window === "undefined") return
   if (value === null) localStorage.removeItem(key)
   else localStorage.setItem(key, value)
+  window.dispatchEvent(new CustomEvent(AUTH_STORAGE_CHANGED_EVENT))
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
 
+  const clearSession = () => {
+    setUser(null)
+    setStoredToken(ACCESS_TOKEN_KEY, null)
+    setStoredToken(REFRESH_TOKEN_KEY, null)
+    setStoredToken(USER_ID_KEY, null)
+  }
+
   const fetchMe = async () => {
     try {
       const token = getStoredToken(ACCESS_TOKEN_KEY)
-      if (!token) throw new Error("No token found")
+      if (!token || !hasSavedCredentials()) throw new Error("No saved credentials")
 
       let userId = getStoredToken(USER_ID_KEY)
       
@@ -106,21 +120,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Session recovery failed:", error)
-      setUser(null)
-      // If unauthorized, clear tokens
-      setStoredToken(ACCESS_TOKEN_KEY, null)
-      setStoredToken(REFRESH_TOKEN_KEY, null)
+      clearSession()
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    const token = getStoredToken(ACCESS_TOKEN_KEY)
-    if (token) {
+    if (hasSavedCredentials() && getStoredToken(ACCESS_TOKEN_KEY)) {
       void fetchMe()
     } else {
+      clearSession()
       setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncSessionWithStorage = () => {
+      if (!hasSavedCredentials()) {
+        setUser(null)
+        setIsLoading(false)
+      }
+    }
+
+    window.addEventListener("storage", syncSessionWithStorage)
+    window.addEventListener(AUTH_STORAGE_CHANGED_EVENT, syncSessionWithStorage)
+
+    return () => {
+      window.removeEventListener("storage", syncSessionWithStorage)
+      window.removeEventListener(AUTH_STORAGE_CHANGED_EVENT, syncSessionWithStorage)
     }
   }, [])
 
@@ -190,10 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
-    setUser(null)
-    setStoredToken(ACCESS_TOKEN_KEY, null)
-    setStoredToken(REFRESH_TOKEN_KEY, null)
-    setStoredToken(USER_ID_KEY, null)
+    clearSession()
   }
 
   return (

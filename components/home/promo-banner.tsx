@@ -2,14 +2,27 @@
 
 import { Truck, ShieldCheck, CreditCard, RotateCcw } from "lucide-react"
 
-const perks = [
-  { icon: Truck, label: "Frete Grátis", desc: "Para todo o Brasil acima de R$ 199" },
-  { icon: ShieldCheck, label: "Compra Segura", desc: "Seus dados protegidos" },
-  { icon: CreditCard, label: "Até 3x Sem Juros", desc: "No cartão de crédito" },
-  { icon: RotateCcw, label: "Troca Fácil", desc: "30 dias para trocar" },
-]
+import { usePublicSettings } from "@/lib/public-settings-context"
 
 export function PromoBanner() {
+  const { settings } = usePublicSettings()
+  const paymentPerks = []
+
+  if (settings.stripeEnableCards) {
+    paymentPerks.push({ icon: CreditCard, label: "Cartão", desc: "Pagamento seguro pela Stripe" })
+  }
+
+  if (settings.stripeEnablePix) {
+    paymentPerks.push({ icon: CreditCard, label: "Pix", desc: "Pagamento instantâneo disponível" })
+  }
+
+  const perks = [
+    { icon: Truck, label: "Frete Grátis", desc: "Para todo o Brasil acima de R$ 199" },
+    { icon: ShieldCheck, label: "Compra Segura", desc: "Seus dados protegidos" },
+    ...paymentPerks,
+    { icon: RotateCcw, label: "Troca Fácil", desc: "30 dias para trocar" },
+  ].slice(0, 4)
+
   return (
     <section className="bg-black text-white">
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-8 lg:grid-cols-4 lg:gap-8 lg:px-8">

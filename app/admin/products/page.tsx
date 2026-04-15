@@ -3,20 +3,74 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Search, Plus, Edit2, Trash2, Package } from "lucide-react"
-import { getProducts, formatPrice, type Product } from "@/lib/products"
+import { Search, Plus, Edit2, Trash2, Package, RotateCcw, Loader2 } from "lucide-react"
+import { getProducts, formatPrice, getProductAdminEditHref, getProductImageUrl, updateProduct, type Product } from "@/lib/products"
+import { useToast } from "@/hooks/use-toast"
+
+function getCategoryName(product: Product): string {
+  if (!product.category) {
+    return "Sem categoria"
+  }
+
+  if (typeof product.category === "object") {
+    return product.category.name
+  }
+
+  return product.category_name || "Sem categoria"
+}
 
 export default function ProductsAdminPage() {
+  const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null)
+
+  const fetchProducts = async () => {
+    try {
+      const data = await getProducts({ requiresAuth: true })
+      setProducts(data)
+    } catch (err) {
+      console.error("Error fetching admin products:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    getProducts()
-      .then(setProducts)
-      .catch(err => console.error("Error fetching admin products:", err))
-      .finally(() => setIsLoading(false))
+    void fetchProducts()
   }, [])
+
+  const handleToggleProductStatus = async (product: Product) => {
+    setPendingProductId(product.id)
+
+    try {
+      await updateProduct(product.id, {
+        is_active: product.is_active === false,
+      })
+
+      setProducts((currentProducts) =>
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id
+            ? { ...currentProduct, is_active: currentProduct.is_active === false }
+            : currentProduct
+        )
+      )
+
+      toast({
+        title: product.is_active === false ? "Produto reativado" : "Produto desativado",
+        description: `${product.name} foi ${product.is_active === false ? "reativado" : "desativado"} com sucesso.`,
+      })
+    } catch (err: any) {
+      toast({
+        title: "Erro ao atualizar produto",
+        description: err?.message || "Não foi possível alterar o status do produto.",
+        variant: "destructive",
+      })
+    } finally {
+      setPendingProductId(null)
+    }
+  }
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -31,7 +85,7 @@ export default function ProductsAdminPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6 w-full">
       <div className="flex items-center justify-between">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -54,7 +108,7 @@ export default function ProductsAdminPage() {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-6 py-4 font-semibold">Produto</th>
@@ -70,37 +124,55 @@ export default function ProductsAdminPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="relative h-12 w-12 overflow-hidden rounded-lg bg-secondary">
-                        {product.images?.[0]?.image ? (
-                          <Image src={product.images[0].image} alt={product.name} fill className="object-cover" />
+                        {getProductImageUrl(product) ? (
+                          <Image src={getProductImageUrl(product) as string} alt={product.name} fill className="object-cover" />
                         ) : (
                           <Package className="h-6 w-6 text-muted-foreground/20 m-auto" />
                         )}
                       </div>
-                      <div className="font-medium text-foreground">{product.name}</div>
+                      <div>
+                        <div className="font-medium text-foreground">{product.name}</div>
+                        <div className="text-xs text-muted-foreground">SKU: {product.sku || "—"}</div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-foreground">{formatPrice(product.price)}</td>
                   <td className="px-6 py-4">
                     <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                      {product.category_name}
+                      {getCategoryName(product)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-foreground">
                     <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${product.stock_quantity && product.stock_quantity > 10 ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {product.stock_quantity || 0} unid.
+                      <div className={`h-2 w-2 rounded-full ${(product.stock_total || 0) > 10 ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {product.stock_total || 0} unid.
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {product.is_active === false ? "Inativo" : "Ativo"}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                        <Link 
-                        href={`/admin/product/${product.id}/update`}
+                        href={getProductAdminEditHref(product)}
                         className="rounded p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary inline-flex items-center"
                       >
                         <Edit2 className="h-4 w-4" />
                       </Link>
-                      <button className="rounded p-2 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500">
-                        <Trash2 className="h-4 w-4" />
+                      <button
+                        type="button"
+                        onClick={() => handleToggleProductStatus(product)}
+                        disabled={pendingProductId === product.id}
+                        title={product.is_active === false ? "Reativar produto" : "Desativar produto"}
+                        className="rounded p-2 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {pendingProductId === product.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : product.is_active === false ? (
+                          <RotateCcw className="h-4 w-4" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   </td>

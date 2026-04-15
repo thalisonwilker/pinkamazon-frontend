@@ -1,18 +1,67 @@
+"use client"
+
 import Image from "next/image"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { ArrowDown } from "lucide-react"
 
+import { resolveBannerAsset } from "@/lib/admin-settings"
+import { usePublicSettings } from "@/lib/public-settings-context"
+
 export function HeroBanner() {
+  const { settings } = usePublicSettings()
+  const [bannerKey, setBannerKey] = useState<"desktop" | "tablet" | "mobile">("desktop")
+  const fallbackBannerSrc = "/images/hero-monkey.jpg"
+
+  useEffect(() => {
+    const updateBannerKey = () => {
+      if (window.innerWidth < 768) {
+        setBannerKey("mobile")
+        return
+      }
+
+      if (window.innerWidth < 1280) {
+        setBannerKey("tablet")
+        return
+      }
+
+      setBannerKey("desktop")
+    }
+
+    updateBannerKey()
+    window.addEventListener("resize", updateBannerKey)
+
+    return () => {
+      window.removeEventListener("resize", updateBannerKey)
+    }
+  }, [])
+
+  const activeBanner = settings.banners[bannerKey].enabled
+    ? settings.banners[bannerKey]
+    : settings.banners.desktop.enabled
+      ? settings.banners.desktop
+      : settings.banners.tablet.enabled
+        ? settings.banners.tablet
+        : settings.banners.mobile
+  const bannerSrc = resolveBannerAsset(activeBanner.fileName, fallbackBannerSrc)
+  const bannerAlt = activeBanner.alt || "Desperte Sua Selva Interior"
+  const [resolvedBannerSrc, setResolvedBannerSrc] = useState(bannerSrc)
+
+  useEffect(() => {
+    setResolvedBannerSrc(bannerSrc)
+  }, [bannerSrc])
+
   return (
     <section className="relative flex min-h-[550px] w-full items-center overflow-hidden bg-[#E91E7B] lg:h-[650px]">
       {/* Background Image w/ Gradient Overlay */}
       <div className="absolute inset-0 z-0">
         <Image
-          src="/images/hero-monkey.jpg"
-          alt="Desperte Sua Selva Interior"
+          src={resolvedBannerSrc}
+          alt={bannerAlt}
           fill
           className="object-cover object-[75%_25%] md:object-[center_20%]"
           priority
+          onError={() => setResolvedBannerSrc(fallbackBannerSrc)}
         />
         {/* Gradiente contido na esquerda para não cobrir o macaco */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#E91E7B] via-[#E91E7B]/90 to-transparent md:bg-gradient-to-r md:from-[#E91E7B] text-transparent md:via-[#E91E7B]/80 md:to-transparent md:w-2/3 lg:w-[55%]" />

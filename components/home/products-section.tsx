@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Package } from "lucide-react"
-import { getProducts, formatPrice, type Product } from "@/lib/products"
+import { getProducts, formatPrice, getProductImageUrl, getProductStoreHref, type Product } from "@/lib/products"
 
 export function ProductsSection() {
   const [products, setProducts] = useState<Product[]>([])
@@ -37,14 +37,14 @@ export function ProductsSection() {
         ) : products.map((product) => (
           <Link
             key={product.id}
-            href={`/produto/${product.id}`}
+            href={getProductStoreHref(product)}
             className="group flex w-[280px] shrink-0 snap-center flex-col gap-3 md:w-[350px]"
           >
             {/* Imagem do Produto com Efeitos */}
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-black/5 bg-gray-50 transition-all duration-500 group-hover:border-[#E91E7B] group-hover:shadow-[0_15px_50px_rgba(233,30,123,0.4)] group-hover:-translate-y-1 md:group-hover:-translate-y-2 flex items-center justify-center">
-              {product.images?.[0]?.image ? (
+              {getProductImageUrl(product) ? (
                 <Image
-                  src={product.images[0].image}
+                  src={getProductImageUrl(product) as string}
                   alt={product.name}
                   fill
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
@@ -81,7 +81,7 @@ export function ProductsSection() {
                 {product.name}
               </h3>
               <span className="text-[12px] text-muted-foreground mt-0.5">
-                {product.is_active ? "Novo" : "Esgotado"}
+                {(product.stock_total || 0) > 0 ? `${product.stock_total} em estoque` : "Sem estoque"}
               </span>
             </div>
           </Link>

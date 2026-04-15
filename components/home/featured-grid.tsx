@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { getProducts, type Product } from "@/lib/products"
+import { getProducts, getProductImageUrl, getProductStoreHref, type Product } from "@/lib/products"
 
 export function FeaturedGrid() {
   const [products, setProducts] = useState<Product[]>([])
@@ -25,12 +25,12 @@ export function FeaturedGrid() {
         {products.map((item) => (
           <Link
             key={item.id}
-            href={`/produto/${item.id}`}
+            href={getProductStoreHref(item)}
             className="group relative h-[500px] w-full overflow-hidden transition-all md:h-[600px] lg:h-[700px] rounded-2xl"
           >
-            {item.images?.[0]?.image && (
+            {getProductImageUrl(item) && (
               <Image
-                src={item.images[0].image}
+                src={getProductImageUrl(item) as string}
                 alt={item.name}
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"

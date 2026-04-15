@@ -27,6 +27,12 @@ export interface Order {
   shipments?: any[]
 }
 
+export interface OrderCreationPayload {
+  items: { product_id: string; quantity: number }[];
+  shipping_address: string;
+  billing_address: string;
+}
+
 export async function getOrders(): Promise<Order[]> {
   const response = await apiFetch<any>("/api/v1/orders/", { requiresAuth: true })
   return response?.data?.results || response?.results || response?.data || response || []
@@ -43,6 +49,22 @@ export async function payOrder(id: string, provider: string): Promise<any> {
     body: { provider },
     requiresAuth: true
   })
+}
+
+export async function createOrder(
+  payload: OrderCreationPayload,
+  token: string
+): Promise<Order> {
+  const response = await apiFetch<any>("/api/v1/orders/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    requiresAuth: false, // Manual auth header
+  });
+  return response?.data || response;
 }
 
 export const statusLabel: Record<string, string> = {

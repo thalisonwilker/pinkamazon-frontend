@@ -69,7 +69,7 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div className="flex flex-col gap-4 sm:gap-6 lg:gap-8 pb-6 lg:pb-10 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

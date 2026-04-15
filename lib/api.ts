@@ -1,7 +1,8 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+const AUTH_STORAGE_CHANGED_EVENT = "pinkamazon-auth-storage-changed"
 
 export type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {
-  body?: Record<string, unknown> | string
+  body?: Record<string, unknown> | string | FormData
   headers?: Record<string, string>
   requiresAuth?: boolean
 }
@@ -17,15 +18,55 @@ export class ApiError extends Error {
   }
 }
 
+let refreshPromise: Promise<string | null> | null = null
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refreshToken") : null
+  if (!refreshToken) return null
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh: refreshToken }),
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const newAccess = json?.data?.access ?? json?.access
+    if (newAccess && typeof window !== "undefined") {
+      localStorage.setItem("accessToken", newAccess)
+    }
+    return newAccess ?? null
+  } catch {
+    return null
+  }
+}
+
+function clearStoredCredentials() {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  localStorage.removeItem("accessToken")
+  localStorage.removeItem("refreshToken")
+  localStorage.removeItem("userId")
+  window.dispatchEvent(new CustomEvent(AUTH_STORAGE_CHANGED_EVENT))
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   { body, requiresAuth, ...init }: ApiFetchOptions = {}
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`
 
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...((init.headers as Record<string, string>) ?? {}),
+  }
+
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json"
   }
 
   if (requiresAuth) {
@@ -41,11 +82,30 @@ export async function apiFetch<T = unknown>(
   }
 
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...init,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isFormData ? body : typeof body === "string" ? body : JSON.stringify(body)) : undefined,
     })
+
+    if (response.status === 401 && requiresAuth) {
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => { refreshPromise = null })
+      }
+      const newToken = await refreshPromise
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`
+        response = await fetch(url, {
+          ...init,
+          headers,
+          body: body ? (isFormData ? body : typeof body === "string" ? body : JSON.stringify(body)) : undefined,
+        })
+      }
+
+      if (!newToken) {
+        clearStoredCredentials()
+      }
+    }
 
     if (!response.ok) {
       const contentType = response.headers.get("content-type") ?? ""
@@ -84,6 +144,10 @@ export async function apiFetch<T = unknown>(
       }
 
       if (!message) message = text || `Request failed (${response.status})`
+
+      if (response.status === 401 && requiresAuth) {
+        clearStoredCredentials()
+      }
 
       throw new ApiError(message, response.status, data)
     }

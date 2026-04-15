@@ -5,26 +5,87 @@ import Link from "next/link"
 import { useState } from "react"
 import {
   Trash2,
-  CreditCard,
-  QrCode,
-  Barcode,
   ShieldCheck,
   ChevronLeft,
   ShoppingBag,
+  Minus,
+  Plus,
+  Lock,
+  Loader2,
 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { usePublicSettings } from "@/lib/public-settings-context"
 import { useCart } from "@/lib/cart-context"
-import { formatPrice } from "@/lib/products"
-
-type PaymentMethod = "pix" | "credit" | "boleto"
+import { formatPrice, getProductImageUrl } from "@/lib/products"
+import { createOrder, OrderCreationPayload } from "@/lib/orders"
+import { createCheckoutSession } from "@/lib/payments"
+import { toast } from "@/hooks/use-toast"
 
 export function CheckoutContent() {
-  const { items, removeItem, totalPrice, clearCart } = useCart()
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix")
+  const { user, token, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const { settings } = usePublicSettings()
+  const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart()
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
 
-  const shipping = totalPrice >= 199 ? 0 : 29.9
-  const pixDiscount = paymentMethod === "pix" ? totalPrice * 0.1 : 0
-  const finalTotal = totalPrice + shipping - pixDiscount
+  const enabledPaymentMethods = [
+    settings.stripeEnableCards ? "Cartão" : null,
+    settings.stripeEnablePix ? "Pix" : null,
+  ].filter(Boolean) as string[]
+
+  const finalTotal = totalPrice
+
+  const handleFinishOrder = async () => {
+    if (!isAuthenticated || !token) {
+      toast({
+        title: "Autenticação necessária",
+        description: "Por favor, faça login para finalizar seu pedido.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsPlacingOrder(true)
+
+    try {
+      const orderPayload: OrderCreationPayload = {
+        items: items.map((item) => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+        })),
+        // TODO: Collect shipping and billing addresses from a form
+        shipping_address: "Rua Fictícia, 123, Bairro, Cidade - UF, 12345-678",
+        billing_address: "Rua Fictícia, 123, Bairro, Cidade - UF, 12345-678",
+      }
+
+      // 1. Create the order in our database
+      const newOrder = await createOrder(orderPayload, token)
+
+      if (!newOrder || !newOrder.id) {
+        throw new Error("Failed to create order.")
+      }
+
+      // 2. Create a Stripe checkout session for the order
+      const sessionResponse = await createCheckoutSession(newOrder.id, token)
+
+      // 3. Redirect to Stripe's payment page
+      if (sessionResponse.checkoutUrl) {
+        window.location.href = sessionResponse.checkoutUrl
+      } else {
+        throw new Error("No checkout URL returned from Stripe.")
+      }
+
+    } catch (error) {
+      console.error("Failed to place order:", error)
+      toast({
+        title: "Erro ao finalizar pedido",
+        description: "Não foi possível processar seu pedido. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsPlacingOrder(false)
+    }
+  }
 
   /* ---- Order placed state ---- */
   if (orderPlaced) {
@@ -85,7 +146,7 @@ export function CheckoutContent() {
       </h1>
 
       <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-        {/* Left column: items + payment */}
+        {/* Left column: items */}
         <div className="flex-1">
           {/* Items header */}
           <h2 className="mb-5 text-sm font-bold uppercase tracking-wide text-foreground">
@@ -101,9 +162,9 @@ export function CheckoutContent() {
               >
                 {/* Thumbnail */}
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-secondary">
-                  {item.product.images?.[0]?.image ? (
+                  {getProductImageUrl(item.product) ? (
                     <Image
-                      src={item.product.images[0].image}
+                      src={getProductImageUrl(item.product) as string}
                       alt={item.product.name}
                       fill
                       className="object-cover"
@@ -118,13 +179,27 @@ export function CheckoutContent() {
                 <div className="flex flex-1 flex-col gap-0.5">
                   <h3 className="text-base font-bold leading-tight text-foreground">{item.product.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Cor: {item.color} · Tamanho: {item.size}
+                    {item.color && item.color !== "Default" ? `Cor: ${item.color} · ` : ""}Tamanho: {item.size}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Qtd: {item.quantity}
-                  </p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.size, item.color, item.quantity - 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-secondary"
+                      aria-label="Diminuir quantidade"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-6 text-center text-sm font-semibold text-foreground">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(item.product.id, item.size, item.color, item.quantity + 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-secondary"
+                      aria-label="Aumentar quantidade"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
                   <p className="mt-2 text-lg font-bold text-foreground">
-                    {formatPrice(item.product.price * item.quantity)}
+                    {formatPrice(Number(item.product.price) * item.quantity)}
                   </p>
                 </div>
 
@@ -138,62 +213,6 @@ export function CheckoutContent() {
                 </button>
               </div>
             ))}
-          </div>
-
-          {/* Payment methods */}
-          <div className="mt-12">
-            <h2 className="mb-5 text-sm font-bold uppercase tracking-wide text-foreground">
-              Forma de Pagamento
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-3">
-              {([
-                {
-                  id: "pix" as const,
-                  icon: QrCode,
-                  label: "Pix",
-                  desc: "10% de desconto",
-                },
-                {
-                  id: "credit" as const,
-                  icon: CreditCard,
-                  label: "Cartão",
-                  desc: "Até 3x sem juros",
-                },
-                {
-                  id: "boleto" as const,
-                  icon: Barcode,
-                  label: "Boleto",
-                  desc: "Vence em 3 dias",
-                },
-              ]).map((method) => {
-                const isActive = paymentMethod === method.id
-                return (
-                  <button
-                    key={method.id}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all ${
-                      isActive
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-background hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md ${
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <method.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold leading-tight text-foreground">{method.label}</p>
-                      <p className="text-xs leading-tight text-muted-foreground">{method.desc}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
           </div>
         </div>
 
@@ -213,21 +232,6 @@ export function CheckoutContent() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="text-foreground">{formatPrice(totalPrice)}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Frete</span>
-                  <span className={shipping === 0 ? "font-semibold text-primary" : "text-foreground"}>
-                    {shipping === 0 ? "Grátis" : formatPrice(shipping)}
-                  </span>
-                </div>
-                {pixDiscount > 0 && (
-                  <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2 text-sm">
-                    <span className="font-semibold text-primary">Desconto Pix</span>
-                    <span className="font-bold text-primary">
-                      {'- '}
-                      {formatPrice(pixDiscount)}
-                    </span>
-                  </div>
-                )}
               </div>
 
               <div className="mt-5 flex items-center justify-between border-t-2 border-primary/10 pt-5">
@@ -235,19 +239,36 @@ export function CheckoutContent() {
                 <span className="text-2xl font-extrabold text-primary">{formatPrice(finalTotal)}</span>
               </div>
 
-              <button
-                onClick={() => {
-                  setOrderPlaced(true)
-                  clearCart()
-                }}
-                className="mt-6 flex w-full items-center justify-center rounded-full bg-primary py-4 text-sm font-bold uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30"
-              >
-                Finalizar Compra
-              </button>
+              {!isAuthenticated && !isAuthLoading && (
+                <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Lock className="h-4 w-4" />
+                    Faça login para concluir a compra
+                  </div>
+                  <p className="mt-1.5 text-xs">
+                    Você será redirecionado para a página de login.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-8">
+                <button
+                  onClick={handleFinishOrder}
+                  disabled={isPlacingOrder || !isAuthenticated}
+                  className="flex w-full items-center justify-center gap-3 rounded-full bg-primary px-8 py-4 text-lg font-extrabold text-primary-foreground transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isPlacingOrder ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-6 w-6" />
+                  )}
+                  <span>{isPlacingOrder ? "Processando..." : "Finalizar Compra"}</span>
+                </button>
+              </div>
 
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                Compra 100% segura
+                <Lock className="h-3 w-3" />
+                <span>Pagamento seguro com Stripe</span>
               </div>
             </div>
           </div>

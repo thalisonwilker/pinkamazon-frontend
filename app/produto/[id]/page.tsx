@@ -1,9 +1,10 @@
 "use client"
 
 import { use, useState, useEffect } from "react"
+import Link from "next/link"
 import { ClientLayout } from "@/components/client-layout"
 import { ProductDetail } from "@/components/product/product-detail"
-import { getProductById, getProducts, type Product } from "@/lib/products"
+import { getProductById, getProducts, getProductCategoryName, type Product } from "@/lib/products"
 import { ProductCard } from "@/components/product-card"
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       .then(p => {
         setProduct(p)
         // Fetch related products (same category)
-        getProducts(p.category)
+        getProducts(typeof p.category === "object" ? p.category.slug : undefined)
           .then(all => setRelated(all.filter(item => item.id !== p.id).slice(0, 4)))
           .catch(() => setRelated([]))
       })
@@ -51,9 +52,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       {/* Breadcrumb */}
       <div className="mx-auto max-w-7xl px-4 py-4 lg:px-8">
         <nav className="flex items-center gap-2 text-xs text-muted-foreground">
-          <a href="/" className="transition-colors hover:text-primary">Inicio</a>
+          <Link href="/" className="transition-colors hover:text-primary">Inicio</Link>
           <span>/</span>
-          <a href={`/categoria/${product.category}`} className="transition-colors hover:text-primary">{product.category_name}</a>
+          <Link
+            href={typeof product.category === "object" ? `/categoria/${product.category.slug}` : "/produtos"}
+            className="transition-colors hover:text-primary"
+          >
+            {getProductCategoryName(product)}
+          </Link>
           <span>/</span>
           <span className="text-foreground">{product.name}</span>
         </nav>
