@@ -239,15 +239,18 @@ export function normalizeProductUrl(url?: string | null): string | null {
     return null
   }
 
-  if (/^https?:\/\//i.test(url)) {
-    return url
+  // Se a URL contém localhost:8000, nós a limpamos para forçar o uso de API_BASE_URL
+  let cleanUrl = url.replace(/^https?:\/\/localhost:8000/i, "")
+
+  if (/^https?:\/\//i.test(cleanUrl)) {
+    return cleanUrl
   }
 
-  if (url.startsWith("//")) {
-    return `https:${url}`
+  if (cleanUrl.startsWith("//")) {
+    return `https:${cleanUrl}`
   }
 
-  return `${API_BASE_URL}${url.startsWith("/") ? url : `/${url}`}`
+  return `${API_BASE_URL}${cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`}`
 }
 
 export function getProductStoreHref(product: Pick<Product, "id">): string {

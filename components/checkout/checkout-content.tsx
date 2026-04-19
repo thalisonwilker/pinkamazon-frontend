@@ -53,9 +53,9 @@ export function CheckoutContent() {
           product_id: item.product.id,
           quantity: item.quantity,
         })),
-        // TODO: Collect shipping and billing addresses from a form
-        shipping_address: "Rua Fictícia, 123, Bairro, Cidade - UF, 12345-678",
-        billing_address: "Rua Fictícia, 123, Bairro, Cidade - UF, 12345-678",
+        // Para este checkout simples, usamos endereços mockados ou poderíamos pegar de um form
+        shipping_address: "Endereço de Entrega Mockado, 123",
+        billing_address: "Endereço de Cobrança Mockado, 123",
       }
 
       // 1. Create the order in our database
@@ -65,15 +65,14 @@ export function CheckoutContent() {
         throw new Error("Failed to create order.")
       }
 
-      // 2. Create a Stripe checkout session for the order
-      const sessionResponse = await createCheckoutSession(newOrder.id, token)
-
-      // 3. Redirect to Stripe's payment page
-      if (sessionResponse.checkoutUrl) {
-        window.location.href = sessionResponse.checkoutUrl
-      } else {
-        throw new Error("No checkout URL returned from Stripe.")
-      }
+      // 2. Clear the cart and show success
+      clearCart()
+      setOrderPlaced(true)
+      
+      toast({
+        title: "Pedido realizado!",
+        description: "Seu pedido foi criado com sucesso e está aguardando pagamento.",
+      })
 
     } catch (error) {
       console.error("Failed to place order:", error)

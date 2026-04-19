@@ -19,7 +19,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       .then(p => {
         setProduct(p)
         // Fetch related products (same category)
-        getProducts(typeof p.category === "object" ? p.category.slug : undefined)
+        getProducts(p.category && typeof p.category === "object" ? p.category.slug : undefined)
           .then(all => setRelated(all.filter(item => item.id !== p.id).slice(0, 4)))
           .catch(() => setRelated([]))
       })
@@ -55,7 +55,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           <Link href="/" className="transition-colors hover:text-primary">Inicio</Link>
           <span>/</span>
           <Link
-            href={typeof product.category === "object" ? `/categoria/${product.category.slug}` : "/produtos"}
+            href={product.category && typeof product.category === "object" ? `/categoria/${product.category.slug}` : "/produtos"}
             className="transition-colors hover:text-primary"
           >
             {getProductCategoryName(product)}

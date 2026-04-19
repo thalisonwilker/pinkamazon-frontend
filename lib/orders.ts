@@ -14,7 +14,7 @@ export interface Order {
   user: string
   address: number | null
   created_at: string
-  order_status: string
+  status: string
   status_detail?: { code: string; description: string }
   items: OrderItem[]
   subtotal: number
@@ -68,17 +68,21 @@ export async function createOrder(
 }
 
 export const statusLabel: Record<string, string> = {
-  PENDING: "Pendente",
-  PAID: "Pago",
-  SHIPPED: "Enviado",
-  DELIVERED: "Entregue",
-  CANCELED: "Cancelado",
+  pending: "Pagamento Pendente",
+  paid: "Pagamento Confirmado",
+  processing: "Em Separação",
+  shipped: "Enviado/Em Trânsito",
+  delivered: "Entregue",
+  canceled: "Cancelado",
+  refunded: "Devolvido/Reembolsado",
 }
 
 export const statusColor: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-700",
-  PAID: "bg-green-100 text-green-700",
-  SHIPPED: "bg-blue-100 text-blue-700",
-  DELIVERED: "bg-green-500 text-white",
-  CANCELED: "bg-red-100 text-red-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  paid: "bg-green-100 text-green-700",
+  processing: "bg-purple-100 text-purple-700",
+  shipped: "bg-blue-100 text-blue-700",
+  delivered: "bg-emerald-100 text-emerald-700",
+  canceled: "bg-red-100 text-red-700",
+  refunded: "bg-gray-100 text-gray-700",
 }

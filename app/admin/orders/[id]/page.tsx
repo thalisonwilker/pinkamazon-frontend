@@ -11,7 +11,7 @@ import {
   Clock, 
   CheckCircle2, 
 } from "lucide-react"
-import { getOrderById, type Order } from "@/lib/orders"
+import { getOrderById, statusLabel, statusColor, type Order } from "@/lib/orders"
 import { formatPrice } from "@/lib/products"
 
 // Timeline components for status
@@ -64,8 +64,32 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
   }
 
   const handleStatusChange = async (newStatus: string) => {
-    // In a real app, update DB here
-    console.log("Status change requested:", newStatus)
+    try {
+      const { apiFetch } = await import("@/lib/api")
+      await apiFetch(`/api/v1/orders/${id}/`, {
+        method: "PATCH",
+        body: { status: newStatus },
+        requiresAuth: true
+      })
+      
+      // Refresh order data
+      const updated = await getOrderById(id)
+      setOrder(updated)
+      
+      const { toast } = await import("@/hooks/use-toast")
+      toast({
+        title: "Status atualizado",
+        description: `O pedido agora está como ${statusLabel[newStatus]}.`,
+      })
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      const { toast } = await import("@/hooks/use-toast")
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível alterar o status do pedido.",
+        variant: "destructive"
+      })
+    }
   }
 
   return (
@@ -83,10 +107,19 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
-          {order.order_status === "PENDING" && (
+        <div className="flex items-center gap-3">
+          <select 
+            value={order.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-foreground focus:border-primary focus:outline-none"
+          >
+            {Object.entries(statusLabel).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          {order.status === "pending" && (
             <button 
-              onClick={() => handleStatusChange("PAID")}
+              onClick={() => handleStatusChange("paid")}
               className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-transform hover:scale-105"
             >
               Aprovar Pagamento
@@ -163,9 +196,9 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">Método: <span className="text-muted-foreground">{order.payments?.[0]?.provider || "Pix"}</span></p>
                 <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
-                  order.order_status === "PAID" ? "bg-green-100 text-green-700 border-green-200" : "bg-orange-100 text-orange-700 border-orange-200"
+                  statusColor[order.status]
                 }`}>
-                  {order.order_status === "PAID" ? "Aprovado" : "Aguardando"}
+                  {statusLabel[order.status]}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-2">ID Transação: <span className="font-mono">{order.payments?.[0]?.transaction_id || "N/A"}</span></p>
@@ -183,17 +216,17 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
             <TimelineItem title="Pedido Realizado" date={new Date(order.created_at).toLocaleDateString("pt-BR")} done={true} />
             <TimelineItem 
               title="Pagamento Confirmado" 
-              date={order.order_status === "PENDING" ? "--" : "Confirmado"} 
-              done={order.order_status !== "PENDING"} 
-              current={order.order_status === "PENDING"}
+              date={order.status === "pending" ? "--" : "Confirmado"} 
+              done={order.status !== "pending"} 
+              current={order.status === "pending"}
             />
             <TimelineItem 
               title="Enviado" 
-              date={["SHIPPED", "DELIVERED"].includes(order.order_status) ? "Enviado" : "--"} 
-              done={["SHIPPED", "DELIVERED"].includes(order.order_status)}
-              current={order.order_status === "PAID"}
+              date={["shipped", "delivered"].includes(order.status) ? "Enviado" : "--"} 
+              done={["shipped", "delivered"].includes(order.status)}
+              current={order.status === "paid" || order.status === "processing"}
             />
-            <TimelineItem title="Entregue" date={order.order_status === "DELIVERED" ? "Entregue" : "--"} done={order.order_status === "DELIVERED"} />
+            <TimelineItem title="Entregue" date={order.status === "delivered" ? "Entregue" : "--"} done={order.status === "delivered"} />
           </div>
         </div>
       </div>

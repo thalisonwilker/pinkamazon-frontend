@@ -1,4 +1,4 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://10.0.0.204:8000"
 const AUTH_STORAGE_CHANGED_EVENT = "pinkamazon-auth-storage-changed"
 
 export type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {

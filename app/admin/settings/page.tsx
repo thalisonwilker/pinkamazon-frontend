@@ -21,6 +21,7 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   getAdminSettings,
   updateAdminSettings,
+  resolveBannerAsset,
   type AdminSettings,
 } from "@/lib/admin-settings"
 
@@ -61,6 +62,9 @@ export default function SettingsAdminPage() {
   const [fetchingCep, setFetchingCep] = useState(false)
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [testFromCep, setTestFromCep] = useState("")
+  const [testToCep, setTestToCep] = useState("")
+  const [isTestingShipping, setIsTestingShipping] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -136,6 +140,63 @@ export default function SettingsAdminPage() {
       })
     } finally {
       setIsSavingSettings(false)
+    }
+  }
+
+  const handleTestShipping = async () => {
+    if (!settings.melhorEnvioApiKey || !testFromCep || !testToCep) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha a chave API e os dois CEPs para testar.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsTestingShipping(true)
+    try {
+      const axios = (await import("axios")).default
+      const response = await axios.post(
+        "https://melhorenvio.com.br/api/v2/me/shipment/calculate",
+        {
+          from: { postal_code: testFromCep.replace("-", "") },
+          to: { postal_code: testToCep.replace("-", "") },
+          products: [
+            {
+              id: "test",
+              width: 11,
+              height: 11,
+              length: 16,
+              weight: 0.3,
+              insurance_value: 50,
+              quantity: 1
+            }
+          ]
+        },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${settings.melhorEnvioApiKey}`,
+            "Content-Type": "application/json",
+          }
+        }
+      )
+
+      if (response.status === 200) {
+        toast({
+          title: "API Funcionando!",
+          description: `Conexão estabelecida com sucesso via Axios. Encontradas ${response.data.length} opções de frete.`,
+        })
+      }
+    } catch (error: any) {
+      console.error("Shipping test error (Axios):", error)
+      toast({
+        title: "Erro na API",
+        description: error.response?.data?.message || "Erro na chave API ou restrição de CORS no navegador.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsTestingShipping(false)
     }
   }
 
@@ -229,10 +290,26 @@ export default function SettingsAdminPage() {
                   <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-semibold text-foreground">Arquivo do banner</label>
-                      <div className="flex h-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-secondary/50 transition-colors hover:bg-secondary">
-                        <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Clique para fazer upload</span>
-                        <span className="mt-1 text-[11px] text-muted-foreground">PNG, JPG ou WebP</span>
+                      <div className="group relative flex h-32 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-border bg-secondary/50 transition-colors hover:bg-secondary">
+                        {bannerSettings.fileName ? (
+                          <>
+                            <img 
+                              src={resolveBannerAsset(bannerSettings.fileName, "/images/placeholder-banner.jpg")} 
+                              alt="Preview" 
+                              className="h-full w-full object-cover opacity-50 transition-opacity group-hover:opacity-30" 
+                            />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <ImageIcon className="mb-1 h-6 w-6 text-foreground" />
+                              <span className="text-[10px] font-bold text-foreground">Trocar imagem</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Clique para fazer upload</span>
+                            <span className="mt-1 text-[11px] text-muted-foreground">PNG, JPG ou WebP</span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -482,6 +559,44 @@ export default function SettingsAdminPage() {
                   className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">CEP de Origem (Teste)</label>
+                <input
+                  type="text"
+                  value={testFromCep}
+                  onChange={e => setTestFromCep(e.target.value)}
+                  placeholder="00000-000"
+                  maxLength={9}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">CEP de Destino (Teste)</label>
+                <input
+                  type="text"
+                  value={testToCep}
+                  onChange={e => setTestToCep(e.target.value)}
+                  placeholder="00000-000"
+                  maxLength={9}
+                  className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={handleTestShipping}
+                disabled={isTestingShipping}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary bg-primary/5 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+              >
+                {isTestingShipping ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Testando conexão...</>
+                ) : (
+                  <>Testar API Melhor Envio</>
+                )}
+              </button>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Webhook de frete</label>

@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api"
+import { apiFetch, API_BASE_URL } from "@/lib/api"
 
 export type BannerKey = "desktop" | "tablet" | "mobile"
 
@@ -133,11 +133,23 @@ export function resolveBannerAsset(fileName: string, fallbackSrc: string): strin
     return fallbackSrc
   }
 
-  if (normalized.startsWith("http://") || normalized.startsWith("https://") || normalized.startsWith("/")) {
-    return normalized
+  // Limpa localhost:8000 se presente
+  let cleanName = normalized.replace(/^https?:\/\/localhost:8000/i, "")
+
+  if (cleanName.startsWith("http://") || cleanName.startsWith("https://")) {
+    return cleanName
   }
 
-  return `/images/${normalized}`
+  // Se o caminho começa com /media/, anexa a URL base da API
+  if (cleanName.startsWith("/media/")) {
+    return `${API_BASE_URL}${cleanName}`
+  }
+
+  if (cleanName.startsWith("/")) {
+    return cleanName
+  }
+
+  return `/images/${cleanName}`
 }
 
 export async function getAdminSettings(): Promise<AdminSettings> {

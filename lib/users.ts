@@ -13,11 +13,7 @@ export type User = {
   promo_emails: boolean;
   order_updates: boolean;
   wishlist_notifications: boolean;
-  document?: {
-    doc_type: string;
-    doc_number: string;
-    country: string;
-  };
+  document?: string;
   addresses?: any[];
 };
 

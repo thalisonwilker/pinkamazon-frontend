@@ -9,6 +9,7 @@ import {
   getCategories,
   updateProduct,
   createCategory,
+  normalizeProductUrl,
   type Product,
   type Category,
   type ProductImage,
@@ -96,7 +97,7 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
             if (typeof img === "string") {
               return {
                 id: `existing-${index}`,
-                previewUrl: img,
+                previewUrl: normalizeProductUrl(img) || img,
                 existingUrl: img,
                 isPrimary: index === 0,
               }
@@ -105,7 +106,7 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
             const image = img as ProductImage
             return {
               id: `existing-${index}`,
-              previewUrl: image.image,
+              previewUrl: normalizeProductUrl(image.image) || image.image,
               existingUrl: image.image,
               isPrimary: Boolean(image.is_primary),
             }

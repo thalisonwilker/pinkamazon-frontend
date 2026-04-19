@@ -32,7 +32,7 @@ import {
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { getOrders, statusLabel, statusColor, type Order } from "@/lib/orders"
-import { formatPrice } from "@/lib/products"
+import { formatPrice, getProductImageUrl } from "@/lib/products"
 import { ClientLayout } from "@/components/client-layout"
 
 type Tab = "pedidos" | "perfil" | "enderecos" | "favoritos" | "configuracoes"
@@ -79,8 +79,8 @@ function OrderCard({ order }: { order: Order }) {
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-sm font-bold text-foreground">{formatPrice(order.total_amount)}</p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor[order.order_status]}`}>
-            {statusLabel[order.order_status]}
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor[order.status]}`}>
+            {statusLabel[order.status]}
           </span>
         </div>
       </div>
@@ -91,7 +91,17 @@ function OrderCard({ order }: { order: Order }) {
           {order.items.map((item, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                <Package className="h-6 w-6 m-auto text-muted-foreground" />
+                {item.product?.images?.[0]?.image ? (
+                  <Image
+                    src={getProductImageUrl(item.product)}
+                    alt={item.product_name_snapshot}
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                  />
+                ) : (
+                  <Package className="h-6 w-6 m-auto text-muted-foreground" />
+                )}
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">{item.product_name_snapshot}</p>
@@ -174,7 +184,7 @@ function AccountContent() {
     last_name: user?.last_name ?? "",
     email: user?.email ?? "",
     phone: user?.phone ?? "",
-    cpf: (typeof user?.document === 'string' ? user?.document : user?.document?.doc_number) ?? "",
+    cpf: user?.document ?? "",
     birthdate: user?.birthdate ?? "",
   })
   const [profileSaved, setProfileSaved] = useState(false)
@@ -209,7 +219,7 @@ function AccountContent() {
   const fetchAddresses = async () => {
     try {
       const { apiFetch } = await import("@/lib/api")
-      const res = await apiFetch("/api/v1/addresses/", { requiresAuth: true }) as any
+      const res = await apiFetch(`/api/v1/users/${user?.id}/addresses/`, { requiresAuth: true }) as any
       const data = res?.data?.results || res?.results || res?.data || res || []
       setAddresses(data)
     } catch (error) {
@@ -255,7 +265,9 @@ function AccountContent() {
       const { apiFetch } = await import("@/lib/api")
       const isEditing = !!addressFormData.id
       const method = isEditing ? "PUT" : "POST"
-      const url = isEditing ? `/api/v1/addresses/${addressFormData.id}/` : "/api/v1/addresses/"
+      const url = isEditing 
+        ? `/api/v1/users/${user?.id}/addresses/${addressFormData.id}/` 
+        : `/api/v1/users/${user?.id}/addresses/`
       
       await apiFetch(url, {
         method,
@@ -282,7 +294,7 @@ function AccountContent() {
     
     try {
       const { apiFetch } = await import("@/lib/api")
-      await apiFetch(`/api/v1/addresses/${id}/`, {
+      await apiFetch(`/api/v1/users/${user?.id}/addresses/${id}/`, {
         method: "DELETE",
         requiresAuth: true
       })
@@ -335,7 +347,7 @@ function AccountContent() {
         last_name: user.last_name ?? "",
         email: user.email ?? "",
         phone: user.phone ?? "",
-        cpf: (typeof user.document === 'string' ? user.document : user.document?.doc_number) ?? "",
+        cpf: user.document ?? "",
         birthdate: user.birthdate ?? "",
       })
       setNotificationSettings({
@@ -392,11 +404,7 @@ function AccountContent() {
           email: profileData.email,
           phone: profileData.phone,
           birthdate: profileData.birthdate || null,
-          document: {
-            doc_type: "CPF",
-            doc_number: profileData.cpf,
-            country: "BR"
-          }
+          document: profileData.cpf
         },
         requiresAuth: true
       })
@@ -705,39 +713,6 @@ function AccountContent() {
                   </form>
                 </div>
 
-                {/* Saved cards */}
-                <div className="rounded-xl border border-border bg-card">
-                  <div className="flex items-center gap-3 border-b border-border px-6 py-4">
-                    <CreditCard className="h-5 w-5 text-primary" />
-                    <h3 className="font-semibold text-foreground">Cartões Salvos</h3>
-                  </div>
-                  <div className="flex flex-col divide-y divide-border">
-                    {mockCards.map((card) => (
-                      <div key={card.id} className="flex items-center justify-between px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-14 items-center justify-center rounded-md border border-border bg-secondary text-xs font-bold text-foreground">
-                            {card.brand}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
-                              •••• •••• •••• {card.last4}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{card.name} · Vence {card.expiry}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {card.isDefault && (
-                            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">Padrão</span>
-                          )}
-                          <button className="text-xs font-semibold text-muted-foreground transition-colors hover:text-red-500">Remover</button>
-                        </div>
-                      </div>
-                    ))}
-                    <button className="flex items-center gap-2 px-6 py-4 text-sm font-semibold text-primary transition-colors hover:bg-secondary/50">
-                      + Adicionar cartão
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 

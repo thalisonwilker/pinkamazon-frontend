@@ -39,6 +39,7 @@ interface AuthContextType {
   fetchMe: () => Promise<void>
   isAuthenticated: boolean
   isLoading: boolean
+  token: string | null
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -83,9 +84,11 @@ function setStoredToken(key: string, value: string | null) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
 
   const clearSession = () => {
     setUser(null)
+    setToken(null)
     setStoredToken(ACCESS_TOKEN_KEY, null)
     setStoredToken(REFRESH_TOKEN_KEY, null)
     setStoredToken(USER_ID_KEY, null)
@@ -93,8 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchMe = async () => {
     try {
-      const token = getStoredToken(ACCESS_TOKEN_KEY)
-      if (!token || !hasSavedCredentials()) throw new Error("No saved credentials")
+      const storedToken = getStoredToken(ACCESS_TOKEN_KEY)
+      if (!storedToken || !hasSavedCredentials()) throw new Error("No saved credentials")
+      
+      setToken(storedToken)
 
       let userId = getStoredToken(USER_ID_KEY)
       
@@ -139,7 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const syncSessionWithStorage = () => {
       if (!hasSavedCredentials()) {
         setUser(null)
+        setToken(null)
         setIsLoading(false)
+      } else {
+        setToken(getStoredToken(ACCESS_TOKEN_KEY))
       }
     }
 
@@ -167,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setStoredToken(ACCESS_TOKEN_KEY, access)
       setStoredToken(REFRESH_TOKEN_KEY, refresh)
+      setToken(access)
 
       // Get user ID from token to call the right endpoint
       const decoded = decodeJwt(access)
@@ -222,7 +231,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, fetchMe, isAuthenticated: !!user, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      register, 
+      logout, 
+      fetchMe, 
+      isAuthenticated: !!user, 
+      isLoading,
+      token
+    }}>
       {children}
     </AuthContext.Provider>
   )
