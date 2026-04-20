@@ -212,7 +212,8 @@ export default function SettingsAdminPage() {
       
       const { results } = response
       const apiMsg = results.api_key.status === "success" ? "✅ API Key OK" : "❌ API Key Falhou"
-      const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : "❌ Webhook Falhou"
+      const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : 
+                    results.webhook.status === "warning" ? "⚠️ Webhook (Opcional)" : "❌ Webhook Falhou"
 
       toast({
         title: "Resultado do Teste",
@@ -223,7 +224,8 @@ export default function SettingsAdminPage() {
       let msg = "Falha ao validar configurações."
       if (results) {
         const apiMsg = results.api_key.status === "success" ? "✅ API OK" : "❌ API Erro"
-        const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : "❌ Webhook Erro"
+        const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : 
+                      results.webhook.status === "warning" ? "⚠️ Webhook" : "❌ Webhook Erro"
         msg = `${apiMsg} | ${webMsg}`
       }
 
