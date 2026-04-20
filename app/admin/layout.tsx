@@ -37,8 +37,8 @@ import { useAuth } from "@/lib/auth-context"
 const navigation = [
   // Visão Geral
   { name: 'Executivo', href: '/admin', icon: LayoutDashboard, group: 'Visão Geral' },
-  { name: 'Comercial', href: '#', icon: LayoutDashboard, group: 'Visão Geral', comingSoon: true },
-  { name: 'Financeiro', href: '#', icon: LayoutDashboard, group: 'Visão Geral', comingSoon: true },
+  { name: 'Comercial', href: '/admin/comercial', icon: ShoppingBag, group: 'Visão Geral' },
+  { name: 'Financeiro', href: '/admin/financeiro', icon: CircleDollarSign, group: 'Visão Geral' },
   
   // Operação
   { name: 'Pedidos', href: '/admin/orders', icon: ClipboardList, group: 'Operação' },
