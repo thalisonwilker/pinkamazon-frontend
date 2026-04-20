@@ -335,7 +335,7 @@ export default function AdminDashboard() {
                 Alertas de Reposição
               </h3>
               <div className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase">
-                Estoque < 10 un
+                Estoque &lt; 10 un
               </div>
             </div>
             <div className="flex flex-col gap-3">
