@@ -24,6 +24,7 @@ import {
   resolveBannerAsset,
   type AdminSettings,
 } from "@/lib/admin-settings"
+import { apiFetch } from "@/lib/api"
 
 const bannerTypes = [
   {
@@ -65,6 +66,7 @@ export default function SettingsAdminPage() {
   const [testFromCep, setTestFromCep] = useState("")
   const [testToCep, setTestToCep] = useState("")
   const [isTestingShipping, setIsTestingShipping] = useState(false)
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -197,6 +199,41 @@ export default function SettingsAdminPage() {
       })
     } finally {
       setIsTestingShipping(false)
+    }
+  }
+
+  const handleTestWebhook = async () => {
+    setIsTestingWebhook(true)
+    try {
+      const response = await apiFetch<any>("/api/v1/settings/stripe-webhook-test/", {
+        method: "POST",
+        requiresAuth: true
+      })
+      
+      const { results } = response
+      const apiMsg = results.api_key.status === "success" ? "✅ API Key OK" : "❌ API Key Falhou"
+      const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : "❌ Webhook Falhou"
+
+      toast({
+        title: "Resultado do Teste",
+        description: `${apiMsg} | ${webMsg}`,
+      })
+    } catch (error: any) {
+      const results = error.results
+      let msg = "Falha ao validar configurações."
+      if (results) {
+        const apiMsg = results.api_key.status === "success" ? "✅ API OK" : "❌ API Erro"
+        const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : "❌ Webhook Erro"
+        msg = `${apiMsg} | ${webMsg}`
+      }
+
+      toast({
+        title: "Erro na validação",
+        description: msg,
+        variant: "destructive"
+      })
+    } finally {
+      setIsTestingWebhook(false)
     }
   }
 
@@ -486,19 +523,9 @@ export default function SettingsAdminPage() {
         </button>
         {openSections.payment && (
         <form onSubmit={handleSave} className="border-t border-border p-6 flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">Stripe Publishable Key</label>
-              <input
-                type="text"
-                value={settings.stripePublicKey}
-                onChange={e => setSettings({...settings, stripePublicKey: e.target.value})}
-                placeholder="pk_test_..."
-                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">Stripe Secret Key</label>
+              <label className="mb-2 block text-sm font-semibold text-foreground">Stripe API Key</label>
               <input
                 type="password"
                 value={settings.stripeSecretKey}
@@ -507,16 +534,30 @@ export default function SettingsAdminPage() {
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Webhook Secret</label>
               <input
-                type="password"
                 value={settings.stripeWebhookSecret}
                 onChange={e => setSettings({...settings, stripeWebhookSecret: e.target.value})}
                 placeholder="whsec_..."
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
+          </div>
+
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={handleTestWebhook}
+              disabled={isTestingWebhook || isSavingSettings}
+              className="flex items-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+            >
+              {isTestingWebhook ? (
+                <><Loader2 className="h-3 w-3 animate-spin" /> Testando...</>
+              ) : (
+                "Testar Conexão Stripe"
+              )}
+            </button>
           </div>
 
           <div className="mt-4 flex justify-end">

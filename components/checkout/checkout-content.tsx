@@ -52,6 +52,7 @@ export function CheckoutContent() {
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
+          size: item.size,
         })),
         // Para este checkout simples, usamos endereços mockados ou poderíamos pegar de um form
         shipping_address: "Endereço de Entrega Mockado, 123",
@@ -62,16 +63,32 @@ export function CheckoutContent() {
       const newOrder = await createOrder(orderPayload, token)
 
       if (!newOrder || !newOrder.id) {
-        throw new Error("Failed to create order.")
+        throw new Error("Não foi possível criar o pedido.")
       }
 
-      // 2. Clear the cart and show success
+      // 2. Create Stripe Checkout Session
+      try {
+        const session = await createCheckoutSession(newOrder.id, token)
+        if (session && session.checkout_url) {
+          // Clear cart before redirecting
+          clearCart()
+          // Redirect to Stripe
+          window.location.href = session.checkout_url
+          return
+        }
+      } catch (paymentError) {
+        console.error("Payment session creation failed:", paymentError)
+        // If payment session fails, we still have the order created
+        // We could redirect to a "My Orders" page or show a specific message
+      }
+
+      // 3. Fallback success state (if redirect doesn't happen)
       clearCart()
       setOrderPlaced(true)
       
       toast({
         title: "Pedido realizado!",
-        description: "Seu pedido foi criado com sucesso e está aguardando pagamento.",
+        description: "Seu pedido foi criado. Por favor, verifique seus e-mails para o pagamento.",
       })
 
     } catch (error) {

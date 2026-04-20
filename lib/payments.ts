@@ -2,7 +2,7 @@
 import { apiFetch } from "./api";
 
 export interface CheckoutSessionResponse {
-  checkoutUrl: string;
+  checkout_url: string;
 }
 
 /**
