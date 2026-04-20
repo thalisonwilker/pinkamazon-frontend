@@ -89,6 +89,9 @@ export function Footer() {
           <p className="text-[12px] font-medium text-gray-200/80">
             Todos os Direitos Reservados © 2026 Pink Amazon
           </p>
+          <p className="mt-1 text-[10px] text-gray-400/60 font-light">
+            v{process.env.NEXT_PUBLIC_APP_VERSION}
+          </p>
         </div>
       </div>
     </footer>
