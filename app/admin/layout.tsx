@@ -11,6 +11,7 @@ import {
   Boxes,
   Tags,
   Users, 
+  ShoppingBag,
   CircleDollarSign,
   Settings,
   LogOut,
