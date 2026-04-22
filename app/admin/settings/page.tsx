@@ -14,17 +14,39 @@ import {
   KeyRound,
   MapPin,
   Loader2,
+  Webhook,
+  Copy,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Trash2,
+  Plus,
+  Activity,
 } from "lucide-react"
+
+
 
 import { useToast } from "@/hooks/use-toast"
 import {
   DEFAULT_ADMIN_SETTINGS,
   getAdminSettings,
-  updateAdminSettings,
+  updateBannerAndHomePageSettings,
+  updateMarketingScriptsSettings,
+  updatePaymentsSettings,
+  updateShippingSettings,
   resolveBannerAsset,
   type AdminSettings,
+  listStripeWebhooks,
+  createStripeWebhook,
+  testStripeWebhook,
+  deleteStripeWebhook,
+  type StripeWebhook,
 } from "@/lib/admin-settings"
-import { apiFetch } from "@/lib/api"
+
+import { apiFetch, API_BASE_URL } from "@/lib/api"
+
 
 const bannerTypes = [
   {
@@ -67,17 +89,30 @@ export default function SettingsAdminPage() {
   const [testToCep, setTestToCep] = useState("")
   const [isTestingShipping, setIsTestingShipping] = useState(false)
   const [isTestingWebhook, setIsTestingWebhook] = useState(false)
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false)
+  const [isValidatingWebhook, setIsValidatingWebhook] = useState(false)
+  const [webhookStatus, setWebhookStatus] = useState<"idle" | "success" | "error">("idle")
+  const [webhooks, setWebhooks] = useState<StripeWebhook[]>([])
+  const [newWebhookUrl, setNewWebhookUrl] = useState("")
+  const [isCreatingWebhook, setIsCreatingWebhook] = useState(false)
+
+  const isStripeKeyValid = !settings.stripe_secret_key || settings.stripe_secret_key.startsWith("sk_")
 
   useEffect(() => {
     let isMounted = true
 
     const loadSettings = async () => {
       try {
-        const data = await getAdminSettings()
-        if (!isMounted) {
-          return
-        }
-        setSettings(data)
+        const [settingsData, webhooksData] = await Promise.all([
+          getAdminSettings(),
+          listStripeWebhooks()
+        ])
+        
+        if (!isMounted) return
+        
+        setSettings(settingsData)
+        setWebhooks(webhooksData)
+
       } catch (error) {
         if (!isMounted) {
           return
@@ -101,6 +136,7 @@ export default function SettingsAdminPage() {
     }
   }, [toast])
 
+
   const lookupCep = async (cep: string) => {
     const clean = cep.replace(/\D/g, "")
     if (clean.length !== 8) return
@@ -111,33 +147,152 @@ export default function SettingsAdminPage() {
       if (!data.erro) {
         setSettings(prev => ({
           ...prev,
-          originStreet: data.logradouro || prev.originStreet,
-          originNeighborhood: data.bairro || prev.originNeighborhood,
-          originCity: data.localidade || prev.originCity,
-          originState: data.uf || prev.originState,
+          origin_street: data.logradouro || prev.origin_street,
+          origin_neighborhood: data.bairro || prev.origin_neighborhood,
+          origin_city: data.localidade || prev.origin_city,
+          origin_state: data.uf || prev.origin_state,
         }))
       }
     } catch {}
     setFetchingCep(false)
   }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveBanners = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setIsSavingSettings(true)
-
     try {
-      const updatedSettings = await updateAdminSettings(settings)
-      setSettings(updatedSettings)
+      const updated = await updateBannerAndHomePageSettings({ banners: settings.banners })
+      setSettings(updated)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       toast({
-        title: "Configurações salvas",
-        description: "As alterações de /admin/settings foram persistidas.",
+        title: "Banners salvos",
+        description: "As configurações de banners e página inicial foram persistidas.",
       })
     } catch (error) {
       toast({
-        title: "Erro ao salvar configurações",
-        description: error instanceof Error ? error.message : "Não foi possível salvar as configurações.",
+        title: "Erro ao salvar banners",
+        description: error instanceof Error ? error.message : "Não foi possível salvar os banners.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  const handleSaveMarketing = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setIsSavingSettings(true)
+    try {
+      const {
+        facebook_pixel,
+        google_analytics,
+        google_tag_manager,
+        tiktok_pixel,
+        active_campaign_key,
+        custom_head_script,
+        custom_body_script,
+      } = settings
+      const updated = await updateMarketingScriptsSettings({
+        facebook_pixel,
+        google_analytics,
+        google_tag_manager,
+        tiktok_pixel,
+        active_campaign_key,
+        custom_head_script,
+        custom_body_script,
+      })
+      setSettings(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      toast({
+        title: "Marketing salvo",
+        description: "As configurações de marketing e scripts foram persistidas.",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar marketing",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o marketing.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  const handleSavePayments = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setIsSavingSettings(true)
+    try {
+      const {
+        stripe_public_key,
+        stripe_secret_key,
+        stripe_webhook_secret,
+        stripe_enable_cards,
+        stripe_enable_pix,
+      } = settings
+      const updated = await updatePaymentsSettings({
+        stripe_public_key,
+        stripe_secret_key,
+        stripe_webhook_secret,
+        stripe_enable_cards,
+        stripe_enable_pix,
+      })
+      setSettings(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      toast({
+        title: "Pagamentos salvos",
+        description: "As configurações de pagamento foram persistidas.",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar pagamentos",
+        description: error instanceof Error ? error.message : "Não foi possível salvar os pagamentos.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  const handleSaveShipping = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    setIsSavingSettings(true)
+    try {
+      const {
+        melhor_envio_api_key,
+        melhor_envio_webhook_url,
+        origin_street,
+        origin_number,
+        origin_complement,
+        origin_neighborhood,
+        origin_city,
+        origin_state,
+        origin_zip_code,
+      } = settings
+      const updated = await updateShippingSettings({
+        melhor_envio_api_key,
+        melhor_envio_webhook_url,
+        origin_street,
+        origin_number,
+        origin_complement,
+        origin_neighborhood,
+        origin_city,
+        origin_state,
+        origin_zip_code,
+      })
+      setSettings(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      toast({
+        title: "Frete salvo",
+        description: "As configurações de envio foram persistidas.",
+      })
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar frete",
+        description: error instanceof Error ? error.message : "Não foi possível salvar o frete.",
         variant: "destructive",
       })
     } finally {
@@ -146,7 +301,7 @@ export default function SettingsAdminPage() {
   }
 
   const handleTestShipping = async () => {
-    if (!settings.melhorEnvioApiKey || !testFromCep || !testToCep) {
+    if (!settings.melhor_envio_api_key || !testFromCep || !testToCep) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha a chave API e os dois CEPs para testar.",
@@ -178,7 +333,7 @@ export default function SettingsAdminPage() {
         {
           headers: {
             "Accept": "application/json",
-            "Authorization": `Bearer ${settings.melhorEnvioApiKey}`,
+            "Authorization": `Bearer ${settings.melhor_envio_api_key}`,
             "Content-Type": "application/json",
           }
         }
@@ -205,39 +360,139 @@ export default function SettingsAdminPage() {
   const handleTestWebhook = async () => {
     setIsTestingWebhook(true)
     try {
-      const response = await apiFetch<any>("/api/v1/settings/stripe-webhook-test/", {
+      const response = await apiFetch<any>("/api/v1/settings/admin/payments/test-stripe-api-key/", {
         method: "POST",
-        requiresAuth: true
+        requiresAuth: true,
+        body: { stripe_secret_key: settings.stripe_secret_key }
       })
-      
-      const { results } = response
-      const apiMsg = results.api_key.status === "success" ? "✅ API Key OK" : "❌ API Key Falhou"
-      const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : 
-                    results.webhook.status === "warning" ? "⚠️ Webhook (Opcional)" : "❌ Webhook Falhou"
+
+      const { status, message } = response
+      const apiMsg = status === "success" ? `✅ ${message}` : `❌ ${message}`
+
 
       toast({
         title: "Resultado do Teste",
-        description: `${apiMsg} | ${webMsg}`,
+        description: apiMsg,
       })
     } catch (error: any) {
-      const results = error.results
-      let msg = "Falha ao validar configurações."
-      if (results) {
-        const apiMsg = results.api_key.status === "success" ? "✅ API OK" : "❌ API Erro"
-        const webMsg = results.webhook.status === "success" ? "✅ Webhook OK" : 
-                      results.webhook.status === "warning" ? "⚠️ Webhook" : "❌ Webhook Erro"
-        msg = `${apiMsg} | ${webMsg}`
-      }
-
       toast({
         title: "Erro na validação",
-        description: msg,
+        description: error.message || "Falha ao validar a chave Stripe.",
         variant: "destructive"
       })
     } finally {
       setIsTestingWebhook(false)
     }
   }
+
+  const handleValidateWebhook = async () => {
+    setIsValidatingWebhook(true)
+    setWebhookStatus("idle")
+    try {
+      const response = await apiFetch<any>("/api/v1/settings/admin/payments/validate-webhook-secret/", {
+        method: "POST",
+        requiresAuth: true,
+        body: { stripe_webhook_secret: settings.stripe_webhook_secret }
+      })
+
+      if (response.status === "success") {
+        setWebhookStatus("success")
+        toast({
+          title: "Webhook validado",
+          description: "O signing secret está correto e o endpoint respondeu adequadamente.",
+        })
+      } else {
+        setWebhookStatus("error")
+        toast({
+          title: "Erro na validação",
+          description: response.message || "Não foi possível validar o webhook.",
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      setWebhookStatus("error")
+      toast({
+        title: "Erro na validação",
+        description: error.message || "Falha ao comunicar com o servidor.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsValidatingWebhook(false)
+    }
+  }
+
+  const copyWebhookUrl = () => {
+    const url = `${API_BASE_URL}/api/v1/payments/stripe/`
+    navigator.clipboard.writeText(url)
+    toast({
+      title: "URL Copiada",
+      description: "A URL do webhook foi copiada para a área de transferência.",
+    })
+  }
+
+  const handleSaveWebhook = async () => {
+    if (!newWebhookUrl) return
+    setIsCreatingWebhook(true)
+    try {
+      const webhook = await createStripeWebhook(newWebhookUrl)
+      setWebhooks([...webhooks, webhook])
+      setNewWebhookUrl("")
+      toast({
+        title: "Webhook criado",
+        description: "A URL do webhook foi registrada no Stripe com sucesso.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar webhook",
+        description: error.message || "Não foi possível registrar a URL no Stripe.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsCreatingWebhook(false)
+    }
+  }
+
+  const handleTestWebhookEndpoint = async (webhook: StripeWebhook) => {
+    try {
+      const result = await testStripeWebhook(webhook.id)
+      const updatedWebhooks = webhooks.map(w => 
+        w.id === webhook.id ? { ...w, last_test_result: result } : w
+      )
+      setWebhooks(updatedWebhooks)
+      
+      toast({
+        title: "Resultado do Teste",
+        description: result.status === "success" ? `✅ ${result.message}` : `❌ ${result.message}`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Erro no teste",
+        description: error.message || "Falha ao enviar evento de teste.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteWebhook = async (id: string) => {
+    if (!confirm("Tem certeza que deseja remover este webhook do Stripe?")) return
+    try {
+      await deleteStripeWebhook(id)
+      setWebhooks(webhooks.filter(w => w.id !== id))
+      toast({
+        title: "Webhook removido",
+        description: "O endpoint foi excluído do Stripe.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Erro ao remover",
+        description: error.message || "Não foi possível remover o webhook.",
+        variant: "destructive"
+      })
+    }
+  }
+
+
+
 
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((prev) => ({
@@ -330,10 +585,10 @@ export default function SettingsAdminPage() {
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-semibold text-foreground">Arquivo do banner</label>
                       <div className="group relative flex h-32 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-border bg-secondary/50 transition-colors hover:bg-secondary">
-                        {bannerSettings.fileName ? (
+                        {bannerSettings.file_name ? (
                           <>
                             <img 
-                              src={resolveBannerAsset(bannerSettings.fileName, "/images/placeholder-banner.jpg")} 
+                              src={resolveBannerAsset(bannerSettings.file_name, "/images/placeholder-banner.jpg")} 
                               alt="Preview" 
                               className="h-full w-full object-cover opacity-50 transition-opacity group-hover:opacity-30" 
                             />
@@ -357,7 +612,7 @@ export default function SettingsAdminPage() {
                         <label className="mb-2 block text-sm font-semibold text-foreground">Nome do arquivo</label>
                         <input
                           type="text"
-                          value={bannerSettings.fileName}
+                          value={bannerSettings.file_name}
                           onChange={(e) =>
                             setSettings({
                               ...settings,
@@ -365,7 +620,7 @@ export default function SettingsAdminPage() {
                                 ...settings.banners,
                                 [banner.key]: {
                                   ...bannerSettings,
-                                  fileName: e.target.value,
+                                  file_name: e.target.value,
                                 },
                               },
                             })
@@ -401,6 +656,17 @@ export default function SettingsAdminPage() {
               )
             })}
           </div>
+          
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => handleSaveBanners()}
+              disabled={isSavingSettings}
+              className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-md transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {renderSaveButtonContent()}
+            </button>
+          </div>
         </div>
         )}
       </section>
@@ -419,14 +685,14 @@ export default function SettingsAdminPage() {
           <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${openSections.marketing ? "rotate-180" : ""}`} />
         </button>
         {openSections.marketing && (
-        <form onSubmit={handleSave} className="border-t border-border p-6 flex flex-col gap-5">
+        <form onSubmit={handleSaveMarketing} className="border-t border-border p-6 flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Facebook Pixel ID</label>
               <input 
                 type="text" 
-                value={settings.facebookPixel}
-                onChange={e => setSettings({...settings, facebookPixel: e.target.value})}
+                value={settings.facebook_pixel}
+                onChange={e => setSettings({...settings, facebook_pixel: e.target.value})}
                 placeholder="Ex: 123456789012345"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -435,8 +701,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">Google Analytics (Measurement ID)</label>
               <input 
                 type="text" 
-                value={settings.googleAnalytics}
-                onChange={e => setSettings({...settings, googleAnalytics: e.target.value})}
+                value={settings.google_analytics}
+                onChange={e => setSettings({...settings, google_analytics: e.target.value})}
                 placeholder="Ex: G-XXXXXXXXXX"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -445,8 +711,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">Google Tag Manager (GTM)</label>
               <input 
                 type="text" 
-                value={settings.googleTagManager}
-                onChange={e => setSettings({...settings, googleTagManager: e.target.value})}
+                value={settings.google_tag_manager}
+                onChange={e => setSettings({...settings, google_tag_manager: e.target.value})}
                 placeholder="Ex: GTM-XXXXXXX"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -455,8 +721,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">TikTok Pixel ID</label>
               <input 
                 type="text" 
-                value={settings.tiktokPixel}
-                onChange={e => setSettings({...settings, tiktokPixel: e.target.value})}
+                value={settings.tiktok_pixel}
+                onChange={e => setSettings({...settings, tiktok_pixel: e.target.value})}
                 placeholder="Ex: CQXXXX..."
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -465,8 +731,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">ActiveCampaign API Key</label>
               <input 
                 type="password" 
-                value={settings.activeCampaignKey}
-                onChange={e => setSettings({...settings, activeCampaignKey: e.target.value})}
+                value={settings.active_campaign_key}
+                onChange={e => setSettings({...settings, active_campaign_key: e.target.value})}
                 placeholder="Chave secreta"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -475,8 +741,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">Script customizado no head</label>
               <textarea
                 rows={4}
-                value={settings.customHeadScript}
-                onChange={e => setSettings({...settings, customHeadScript: e.target.value})}
+                value={settings.custom_head_script}
+                onChange={e => setSettings({...settings, custom_head_script: e.target.value})}
                 placeholder="Cole aqui scripts de monitoramento, tags ou validacoes que devem carregar no head"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -485,8 +751,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">Script customizado antes do fechamento do body</label>
               <textarea
                 rows={4}
-                value={settings.customBodyScript}
-                onChange={e => setSettings({...settings, customBodyScript: e.target.value})}
+                value={settings.custom_body_script}
+                onChange={e => setSettings({...settings, custom_body_script: e.target.value})}
                 placeholder="Cole aqui pixels, snippets de conversao ou codigos de terceiros"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -524,26 +790,26 @@ export default function SettingsAdminPage() {
           <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${openSections.payment ? "rotate-180" : ""}`} />
         </button>
         {openSections.payment && (
-        <form onSubmit={handleSave} className="border-t border-border p-6 flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-5">
+        <form onSubmit={handleSavePayments} className="border-t border-border p-6 flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Stripe API Key</label>
               <input
-                type="password"
-                value={settings.stripeSecretKey}
-                onChange={e => setSettings({...settings, stripeSecretKey: e.target.value})}
+                value={settings.stripe_secret_key}
+                onChange={e => setSettings({...settings, stripe_secret_key: e.target.value})}
                 placeholder="sk_test_..."
-                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className={`w-full rounded-lg border bg-background py-2 px-3 text-sm focus:outline-none focus:ring-1 ${
+                  isStripeKeyValid 
+                    ? "border-border focus:border-primary focus:ring-primary" 
+                    : "border-destructive text-destructive focus:border-destructive focus:ring-destructive"
+                }`}
               />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">Webhook Secret</label>
-              <input
-                value={settings.stripeWebhookSecret}
-                onChange={e => setSettings({...settings, stripeWebhookSecret: e.target.value})}
-                placeholder="whsec_..."
-                className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+              {!isStripeKeyValid && (
+                <p className="mt-1.5 text-[11px] font-medium text-destructive">
+                  Você inseriu uma chave inválida. Para esta configuração, use a chave secreta (sk_...).
+                </p>
+              )}
+
             </div>
           </div>
 
@@ -561,6 +827,121 @@ export default function SettingsAdminPage() {
               )}
             </button>
           </div>
+
+          {/* Subseção de Webhooks */}
+          <div className="mt-8 border-t border-border pt-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Webhook className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold text-foreground">Webhooks</h3>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {/* Adicionar novo Webhook */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-foreground">Novo URL do Webhook</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={newWebhookUrl}
+                    onChange={e => setNewWebhookUrl(e.target.value)}
+                    placeholder="https://seu-dominio.com/api/v1/payments/stripe/"
+                    className="flex-1 rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveWebhook}
+                    disabled={isCreatingWebhook || !newWebhookUrl}
+                    className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground shadow-sm transition-transform hover:scale-105 disabled:opacity-50"
+                  >
+                    {isCreatingWebhook ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Salvar URL
+                  </button>
+                </div>
+              </div>
+
+              {/* Listagem de Webhooks */}
+              <div className="flex flex-col gap-4">
+                <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Webhooks Configurados</h4>
+                
+                {webhooks.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    Nenhum webhook configurado no Stripe.
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {webhooks.map((webhook) => (
+                      <div key={webhook.id} className="group flex flex-col gap-3 rounded-xl border border-border bg-background/50 p-4 transition-colors hover:bg-background">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-1 overflow-hidden">
+                            <span className="text-xs font-bold text-muted-foreground truncate">{webhook.id}</span>
+                            <span className="text-sm font-medium text-foreground truncate">{webhook.url}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {webhook.last_test_result?.status === "success" ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            ) : webhook.last_test_result?.status === "error" ? (
+                              <XCircle className="h-5 w-5 text-destructive" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-amber-500" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWebhook(webhook.id)}
+                              className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                             <input
+                                type="password"
+                                readOnly
+                                value={webhook.secret || "••••••••••••••••"}
+                                className="w-full rounded-lg border border-border bg-secondary/20 py-1.5 px-3 text-[11px] font-mono outline-none"
+                             />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleTestWebhookEndpoint(webhook)}
+                            className="rounded-lg border border-primary bg-primary/5 px-3 py-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/10"
+                          >
+                            Validar URL
+                          </button>
+                        </div>
+                        
+                        {webhook.last_test_result && (
+                          <p className={`text-[10px] font-medium ${webhook.last_test_result.status === "success" ? "text-green-600" : "text-destructive"}`}>
+                            {webhook.last_test_result.message}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Eventos Esperados */}
+            <div className="mt-8">
+              <span className="text-[11px] font-bold text-foreground">Eventos monitorados:</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {["checkout.session.completed", "payment_intent.succeeded", "payment_intent.payment_failed"].map(event => (
+                  <span key={event} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                    <Activity className="h-3 w-3 opacity-50" />
+                    {event}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+
+
 
           <div className="mt-4 flex justify-end">
             <button
@@ -588,7 +969,7 @@ export default function SettingsAdminPage() {
           <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${openSections.shipping ? "rotate-180" : ""}`} />
         </button>
         {openSections.shipping && (
-        <form onSubmit={handleSave} className="border-t border-border p-6 flex flex-col gap-5">
+        <form onSubmit={handleSaveShipping} className="border-t border-border p-6 flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">API Key Melhor Envio</label>
@@ -596,8 +977,8 @@ export default function SettingsAdminPage() {
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="password"
-                  value={settings.melhorEnvioApiKey}
-                  onChange={e => setSettings({...settings, melhorEnvioApiKey: e.target.value})}
+                  value={settings.melhor_envio_api_key}
+                  onChange={e => setSettings({...settings, melhor_envio_api_key: e.target.value})}
                   placeholder="Token de acesso do Melhor Envio"
                   className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -645,8 +1026,8 @@ export default function SettingsAdminPage() {
               <label className="mb-2 block text-sm font-semibold text-foreground">Webhook de frete</label>
               <input
                 type="url"
-                value={settings.melhorEnvioWebhookUrl}
-                onChange={e => setSettings({...settings, melhorEnvioWebhookUrl: e.target.value})}
+                value={settings.melhor_envio_webhook_url}
+                onChange={e => setSettings({...settings, melhor_envio_webhook_url: e.target.value})}
                 placeholder="https://.../shipping/melhor-envio/webhook"
                 className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               />
@@ -663,8 +1044,8 @@ export default function SettingsAdminPage() {
                 <label className="mb-2 block text-sm font-semibold text-foreground">Rua</label>
                 <input
                   type="text"
-                  value={settings.originStreet}
-                  onChange={e => setSettings({...settings, originStreet: e.target.value})}
+                  value={settings.origin_street}
+                  onChange={e => setSettings({...settings, origin_street: e.target.value})}
                   placeholder="Ex: Rua das Flores"
                   disabled={fetchingCep}
                   className={addressFieldClassName}
@@ -674,8 +1055,8 @@ export default function SettingsAdminPage() {
                 <label className="mb-2 block text-sm font-semibold text-foreground">Número</label>
                 <input
                   type="text"
-                  value={settings.originNumber}
-                  onChange={e => setSettings({...settings, originNumber: e.target.value})}
+                  value={settings.origin_number}
+                  onChange={e => setSettings({...settings, origin_number: e.target.value})}
                   placeholder="123"
                   className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -684,8 +1065,8 @@ export default function SettingsAdminPage() {
                 <label className="mb-2 block text-sm font-semibold text-foreground">Complemento</label>
                 <input
                   type="text"
-                  value={settings.originComplement}
-                  onChange={e => setSettings({...settings, originComplement: e.target.value})}
+                  value={settings.origin_complement}
+                  onChange={e => setSettings({...settings, origin_complement: e.target.value})}
                   placeholder="Sala 2, Bloco A"
                   className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -696,8 +1077,8 @@ export default function SettingsAdminPage() {
                 </label>
                 <input
                   type="text"
-                  value={settings.originNeighborhood}
-                  onChange={e => setSettings({...settings, originNeighborhood: e.target.value})}
+                  value={settings.origin_neighborhood}
+                  onChange={e => setSettings({...settings, origin_neighborhood: e.target.value})}
                   placeholder="Centro"
                   disabled={fetchingCep}
                   className={addressFieldClassName}
@@ -709,8 +1090,8 @@ export default function SettingsAdminPage() {
                 </label>
                 <input
                   type="text"
-                  value={settings.originCity}
-                  onChange={e => setSettings({...settings, originCity: e.target.value})}
+                  value={settings.origin_city}
+                  onChange={e => setSettings({...settings, origin_city: e.target.value})}
                   placeholder="São Paulo"
                   disabled={fetchingCep}
                   className={addressFieldClassName}
@@ -721,8 +1102,8 @@ export default function SettingsAdminPage() {
                   Estado {fetchingCep ? "(carregando...)" : ""}
                 </label>
                 <select
-                  value={settings.originState}
-                  onChange={e => setSettings({...settings, originState: e.target.value})}
+                  value={settings.origin_state}
+                  onChange={e => setSettings({...settings, origin_state: e.target.value})}
                   disabled={fetchingCep}
                   className={addressFieldClassName}
                 >
@@ -761,8 +1142,8 @@ export default function SettingsAdminPage() {
                 <div className="relative">
                   <input
                     type="text"
-                    value={settings.originZipCode}
-                    onChange={e => setSettings({...settings, originZipCode: e.target.value})}
+                    value={settings.origin_zip_code}
+                    onChange={e => setSettings({...settings, origin_zip_code: e.target.value})}
                     onBlur={e => lookupCep(e.target.value)}
                     placeholder="00000-000"
                     maxLength={9}
