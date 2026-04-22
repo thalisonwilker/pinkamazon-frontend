@@ -83,9 +83,9 @@ export function PublicSettingsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    syncInlineScript(document.head, "pinkamazon-public-head-script", settings.customHeadScript)
-    syncInlineScript(document.body, "pinkamazon-public-body-script", settings.customBodyScript)
-  }, [isPublicPage, settings.customBodyScript, settings.customHeadScript])
+    syncInlineScript(document.head, "pinkamazon-public-head-script", settings.custom_head_script)
+    syncInlineScript(document.body, "pinkamazon-public-body-script", settings.custom_body_script)
+  }, [isPublicPage, settings.custom_body_script, settings.custom_head_script])
 
   const value = useMemo(
     () => ({ settings, isLoading }),
