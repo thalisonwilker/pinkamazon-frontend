@@ -43,7 +43,7 @@ export function HeroBanner() {
       : settings.banners.tablet.enabled
         ? settings.banners.tablet
         : settings.banners.mobile
-  const bannerSrc = resolveBannerAsset(activeBanner.fileName, fallbackBannerSrc)
+  const bannerSrc = resolveBannerAsset(activeBanner.file_name, fallbackBannerSrc)
   const bannerAlt = activeBanner.alt || "Desperte Sua Selva Interior"
   const [resolvedBannerSrc, setResolvedBannerSrc] = useState(bannerSrc)
 
