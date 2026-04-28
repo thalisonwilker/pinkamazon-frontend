@@ -26,19 +26,17 @@ export function ProductsSection() {
   return (
     <section className="px-4 py-8 md:px-8 md:py-16">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-10 flex flex-col items-center justify-center text-center">
+        <div className="mb-16 flex flex-col items-center justify-center text-center">
           <h2 className="font-sans text-2xl font-black uppercase tracking-tighter text-foreground md:text-4xl">
             Nossa <span className="text-[#E91E7B]">Coleção</span>
           </h2>
-          <div className="mt-2 h-1.5 w-20 rounded-full bg-[#E91E7B]" />
+          <div className="mt-4 h-1.5 w-20 rounded-full bg-[#E91E7B]" />
         </div>
 
-
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+        <div className="grid grid-cols-1 justify-items-center gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-4 animate-pulse">
+              <div key={i} className="flex flex-col gap-6 animate-pulse">
                 <div className="aspect-[4/5] w-full rounded-3xl bg-secondary/20" />
                 <div className="h-4 w-3/4 rounded bg-secondary/20" />
                 <div className="h-3 w-1/2 rounded bg-secondary/20" />
@@ -49,17 +47,17 @@ export function ProductsSection() {
           <Link
             key={product.id}
             href={getProductStoreHref(product)}
-            className="group flex w-[280px] shrink-0 snap-center flex-col gap-3 md:w-[350px]"
+            className="group flex w-full flex-col gap-5"
           >
             {/* Imagem do Produto com Efeitos */}
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-black/5 bg-gray-50 transition-all duration-500 group-hover:border-[#E91E7B] group-hover:shadow-[0_15px_50px_rgba(233,30,123,0.4)] group-hover:-translate-y-1 md:group-hover:-translate-y-2 flex items-center justify-center">
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-black/5 bg-gray-50 transition-all duration-500 group-hover:border-[#E91E7B] group-hover:shadow-[0_20px_60px_rgba(233,30,123,0.3)] group-hover:-translate-y-2 flex items-center justify-center">
               {getProductImageUrl(product) ? (
                 <Image
                   src={getProductImageUrl(product) as string}
                   alt={product.name}
                   fill
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                  sizes="(max-width: 768px) 280px, 350px"
+                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 25vw"
                 />
               ) : (
                 <Package className="h-12 w-12 text-muted-foreground/20" />
@@ -76,22 +74,22 @@ export function ProductsSection() {
               </div>
             </div>
             
-            {/* Info Minimalista */}
-            <div className="flex flex-col gap-0.5 px-1">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[14px] font-bold tracking-tight text-red-600">
+            {/* Info Minimalista Centralizada */}
+            <div className="flex flex-col items-center justify-center gap-2 px-1 text-center">
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-[16px] font-bold tracking-tight text-red-600">
                   {formatPrice(product.price)}
                 </span>
                 {product.original_price && (
-                  <span className="text-[12px] text-muted-foreground line-through">
+                  <span className="text-[13px] text-muted-foreground line-through">
                     {formatPrice(product.original_price)}
                   </span>
                 )}
               </div>
-              <h3 className="line-clamp-1 text-[13px] text-foreground transition-colors group-hover:underline mt-1">
+              <h3 className="line-clamp-2 text-[14px] font-medium leading-tight text-foreground transition-colors group-hover:text-[#E91E7B]">
                 {product.name}
               </h3>
-              <span className="text-[12px] text-muted-foreground mt-0.5">
+              <span className="text-[12px] text-muted-foreground">
                 {(product.stock_total || 0) > 0 ? `${product.stock_total} em estoque` : "Sem estoque"}
               </span>
             </div>
