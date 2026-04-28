@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Trash2,
   ShieldCheck,
@@ -12,6 +12,8 @@ import {
   Plus,
   Lock,
   Loader2,
+  MapPin,
+  CreditCard,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { usePublicSettings } from "@/lib/public-settings-context"
@@ -19,6 +21,7 @@ import { useCart } from "@/lib/cart-context"
 import { formatPrice, getProductImageUrl } from "@/lib/products"
 import { createOrder, OrderCreationPayload } from "@/lib/orders"
 import { createCheckoutSession } from "@/lib/payments"
+import { apiFetch } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 
 export function CheckoutContent() {
@@ -27,6 +30,26 @@ export function CheckoutContent() {
   const { items, removeItem, updateQuantity, totalPrice, clearCart } = useCart()
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [addresses, setAddresses] = useState<any[]>([])
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
+
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      const fetchAddresses = async () => {
+        setIsLoadingAddresses(true)
+        try {
+          const res = await apiFetch(`/api/v1/users/${user.id}/addresses/`, { requiresAuth: true }) as any
+          const data = res?.data?.results || res?.results || res?.data || res || []
+          setAddresses(data)
+        } catch (error) {
+          console.error("Erro ao carregar endereços:", error)
+        } finally {
+          setIsLoadingAddresses(false)
+        }
+      }
+      fetchAddresses()
+    }
+  }, [isAuthenticated, user?.id])
 
   const payments = [
     { id: "pix", name: "Pix", enabled: settings.stripe_enable_pix },
@@ -48,15 +71,19 @@ export function CheckoutContent() {
     setIsPlacingOrder(true)
 
     try {
+      const defaultAddress = addresses.find(a => a.is_default) || addresses[0]
+      const addressString = defaultAddress 
+        ? `${defaultAddress.street}, ${defaultAddress.number}${defaultAddress.complement ? ` - ${defaultAddress.complement}` : ""}, ${defaultAddress.neighborhood}, ${defaultAddress.city}/${defaultAddress.state} - CEP: ${defaultAddress.zip_code}`
+        : "Endereço não informado"
+
       const orderPayload: OrderCreationPayload = {
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
           size: item.size,
         })),
-        // Para este checkout simples, usamos endereços mockados ou poderíamos pegar de um form
-        shipping_address: "Endereço de Entrega Mockado, 123",
-        billing_address: "Endereço de Cobrança Mockado, 123",
+        shipping_address: addressString,
+        billing_address: addressString,
       }
 
       // 1. Create the order in our database
@@ -254,32 +281,97 @@ export function CheckoutContent() {
                 <span className="text-base font-bold text-foreground">Total</span>
                 <span className="text-2xl font-extrabold text-primary">{formatPrice(finalTotal)}</span>
               </div>
+              
+              {isAuthenticated && (
+                <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
+                   {/* Endereço */}
+                   <div>
+                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
+                        Endereço de Entrega
+                     </h3>
+                     {isLoadingAddresses ? (
+                       <div className="flex flex-col gap-1.5">
+                         <div className="h-4 w-full animate-pulse rounded bg-secondary" />
+                         <div className="h-3 w-2/3 animate-pulse rounded bg-secondary" />
+                       </div>
+                     ) : addresses.length > 0 ? (
+                       <div className="rounded-lg bg-secondary/30 p-3">
+                         <p className="text-sm font-semibold text-foreground">
+                           {addresses.find(a => a.is_default)?.street || addresses[0].street}, {addresses.find(a => a.is_default)?.number || addresses[0].number}
+                         </p>
+                         <p className="text-[11px] text-muted-foreground mt-0.5">
+                           {addresses.find(a => a.is_default)?.neighborhood || addresses[0].neighborhood} · {addresses.find(a => a.is_default)?.city || addresses[0].city}/{addresses.find(a => a.is_default)?.state || addresses[0].state}
+                         </p>
+                       </div>
+                     ) : (
+                       <Link href="/minha-conta" className="flex items-center gap-1 text-xs font-bold text-primary hover:underline">
+                         <Plus className="h-3 w-3" />
+                         Adicionar endereço principal
+                       </Link>
+                     )}
+                   </div>
+
+                   {/* Pagamento */}
+                   <div>
+                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
+                        <CreditCard className="h-3.5 w-3.5 text-primary" />
+                        Pagamento
+                     </h3>
+                     <div className="flex items-center gap-3 rounded-lg bg-secondary/30 p-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-primary">
+                          <CreditCard className="h-4 w-4" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground">Cartão ou Pix</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Via Stripe</span>
+                        </div>
+                     </div>
+                   </div>
+                </div>
+              )}
 
               {!isAuthenticated && !isAuthLoading && (
                 <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <Lock className="h-4 w-4" />
-                    Faça login para concluir a compra
+                  <div className="flex items-center gap-2 font-semibold text-base">
+                    <Lock className="h-5 w-5" />
+                    Autenticação necessária
                   </div>
-                  <p className="mt-1.5 text-xs">
-                    Você será redirecionado para a página de login.
+                  <p className="mt-2 text-sm leading-tight">
+                    Você precisa estar logado para finalizar sua compra com segurança.
                   </p>
+                  <Link
+                    href="/login?redirect=/checkout"
+                    className="mt-4 flex w-full items-center justify-center rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-amber-700"
+                  >
+                    Entrar agora
+                  </Link>
                 </div>
               )}
 
               <div className="mt-8">
-                <button
-                  onClick={handleFinishOrder}
-                  disabled={isPlacingOrder || !isAuthenticated}
-                  className="flex w-full items-center justify-center gap-3 rounded-full bg-primary px-8 py-4 text-lg font-extrabold text-primary-foreground transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPlacingOrder ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="h-6 w-6" />
-                  )}
-                  <span>{isPlacingOrder ? "Processando..." : "Finalizar Compra"}</span>
-                </button>
+                {isAuthenticated ? (
+                  <button
+                    onClick={handleFinishOrder}
+                    disabled={isPlacingOrder}
+                    className="flex w-full items-center justify-center gap-3 rounded-full bg-primary px-8 py-4 text-lg font-extrabold text-primary-foreground transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPlacingOrder ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="h-6 w-6" />
+                    )}
+                    <span>{isPlacingOrder ? "Processando..." : "Finalizar Compra"}</span>
+                  </button>
+                ) : (
+                  <Link
+                    href="/login?redirect=/checkout"
+                    className="flex w-full items-center justify-center gap-3 rounded-full bg-[#E91E7B] px-8 py-4 text-lg font-extrabold text-white transition-all hover:shadow-lg hover:bg-[#C2185B]"
+                  >
+                    <Lock className="h-6 w-6" />
+                    <span>Fazer Login</span>
+                  </Link>
+                )}
               </div>
 
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">

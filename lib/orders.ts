@@ -24,6 +24,8 @@ export interface Order {
   total_amount: number
   customer_name?: string
   customer_email?: string
+  shipping_address?: string
+  billing_address?: string
   payments?: any[]
   shipments?: any[]
 }

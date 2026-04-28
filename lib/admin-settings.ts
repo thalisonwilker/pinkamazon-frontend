@@ -36,6 +36,11 @@ export type AdminSettings = {
   origin_city: string
   origin_state: string
   origin_zip_code: string
+  melhor_envio_client_id: string
+  melhor_envio_client_secret: string
+  melhor_envio_access_token: string
+  melhor_envio_refresh_token: string
+  melhor_envio_token_expires_at: string | null
 }
 
 export type PublicSettings = Pick<
@@ -83,6 +88,11 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   origin_city: "",
   origin_state: "",
   origin_zip_code: "",
+  melhor_envio_client_id: "",
+  melhor_envio_client_secret: "",
+  melhor_envio_access_token: "",
+  melhor_envio_refresh_token: "",
+  melhor_envio_token_expires_at: null,
 }
 
 export const DEFAULT_PUBLIC_SETTINGS: PublicSettings = {

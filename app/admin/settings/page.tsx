@@ -24,6 +24,7 @@ import {
   Trash2,
   Plus,
   Activity,
+  ExternalLink,
 } from "lucide-react"
 
 
@@ -263,6 +264,8 @@ export default function SettingsAdminPage() {
       const {
         melhor_envio_api_key,
         melhor_envio_webhook_url,
+        melhor_envio_client_id,
+        melhor_envio_client_secret,
         origin_street,
         origin_number,
         origin_complement,
@@ -274,6 +277,8 @@ export default function SettingsAdminPage() {
       const updated = await updateShippingSettings({
         melhor_envio_api_key,
         melhor_envio_webhook_url,
+        melhor_envio_client_id,
+        melhor_envio_client_secret,
         origin_street,
         origin_number,
         origin_complement,
@@ -955,8 +960,109 @@ export default function SettingsAdminPage() {
         {openSections.shipping && (
         <form onSubmit={handleSaveShipping} className="border-t border-border p-6 flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-5">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">API Key Melhor Envio</label>
+            <div className="rounded-xl border border-border bg-background/50 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">Configuração OAuth 2.0 (Sandbox)</h3>
+                </div>
+                {settings.melhor_envio_access_token && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-600">
+                    <CheckCircle2 className="h-3 w-3" /> Conectado
+                  </span>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-foreground">Client ID</label>
+                  <input
+                    type="text"
+                    value={settings.melhor_envio_client_id}
+                    onChange={e => setSettings({...settings, melhor_envio_client_id: e.target.value})}
+                    placeholder="Ex: 24414"
+                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-foreground">Client Secret</label>
+                  <input
+                    type="password"
+                    value={settings.melhor_envio_client_secret}
+                    onChange={e => setSettings({...settings, melhor_envio_client_secret: e.target.value})}
+                    placeholder="Seu client secret"
+                    className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clientId = settings.melhor_envio_client_id || "24414"
+                      const redirectUri = encodeURIComponent("https://sandbox-api.pinkamazon.com.br/api/v1/settings/oauth/")
+                      const scope = encodeURIComponent("shipping-calculate shipping-generate shipping-cancel")
+                      const url = `https://sandbox.melhorenvio.com.br/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`
+                      window.open(url, "_blank")
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Conectar com Melhor Envio
+                  </button>
+                  <p className="mt-2 text-[10px] text-muted-foreground text-center">
+                    Isso abrirá a página de autorização do Melhor Envio em uma nova aba.
+                  </p>
+                </div>
+
+                {settings.melhor_envio_access_token && (
+                  <div className="md:col-span-2 mt-2 grid gap-3 pt-3 border-t border-border">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase">Access Token</label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          readOnly
+                          value={settings.melhor_envio_access_token}
+                          className="w-full rounded-lg border border-border bg-secondary/20 py-1.5 px-3 text-[11px] font-mono outline-none"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(settings.melhor_envio_access_token)
+                            toast({ title: "Copiado", description: "Access Token copiado para a área de transferência." })
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase">Refresh Token</label>
+                        <input
+                          type="password"
+                          readOnly
+                          value={settings.melhor_envio_refresh_token}
+                          className="w-full rounded-lg border border-border bg-secondary/20 py-1.5 px-3 text-[11px] font-mono outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-bold text-muted-foreground uppercase">Expira em</label>
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/20 py-1.5 px-3 text-[11px] text-foreground">
+                          <Activity className="h-3 w-3 text-muted-foreground" />
+                          {settings.melhor_envio_token_expires_at ? new Date(settings.melhor_envio_token_expires_at).toLocaleString("pt-BR") : "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 mt-2 border-t border-border">
+              <label className="mb-2 block text-sm font-semibold text-foreground">API Key Melhor Envio (Legado)</label>
               <div className="relative">
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input

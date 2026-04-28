@@ -183,9 +183,8 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
               </h3>
               <p className="text-sm font-semibold">{order.customer_name || "N/A"}</p>
               <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                ID do Usuário: {order.user}<br />
                 Email: {order.customer_email}<br />
-                ID Endereço: {order.address}
+                Endereço: {order.shipping_address || "N/A"}
               </p>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -194,14 +193,16 @@ export default function OrderDetailsPage({ params }: { params: Promise<{ id: str
                 Pagamento
               </h3>
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Método: <span className="text-muted-foreground">{order.payments?.[0]?.provider || "Pix"}</span></p>
+                <p className="text-sm font-semibold">Método: <span className="text-muted-foreground">{order.payments?.[0]?.provider || "Aguardando"}</span></p>
                 <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
                   statusColor[order.status]
                 }`}>
                   {statusLabel[order.status]}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">ID Transação: <span className="font-mono">{order.payments?.[0]?.transaction_id || "N/A"}</span></p>
+              {order.payments?.[0]?.transaction_id && (
+                <p className="text-xs text-muted-foreground mt-2">ID Transação: <span className="font-mono">{order.payments[0].transaction_id}</span></p>
+              )}
             </div>
           </div>
         </div>
