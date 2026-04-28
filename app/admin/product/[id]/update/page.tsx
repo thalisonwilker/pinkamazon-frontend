@@ -15,6 +15,8 @@ import {
   type ProductImage,
 } from "@/lib/products"
 import { useToast } from "@/hooks/use-toast"
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group"
+import { RichTextEditor } from "@/components/ui/rich-text-editor"
 
 function slugify(text: string): string {
   return text
@@ -55,6 +57,7 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
   const [description, setDescription] = useState("")
   const [categoryId, setCategoryId] = useState("")
   const [price, setPrice] = useState("")
+  const [costPrice, setCostPrice] = useState("")
   const [isActive, setIsActive] = useState(true)
   const [isFeatured, setIsFeatured] = useState(false)
   const [images, setImages] = useState<ProductImageItem[]>([])
@@ -81,6 +84,7 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
         setSku(product.sku || "")
         setDescription(product.description || "")
         setPrice(String(product.price || ""))
+        setCostPrice(String(product.cost_price || ""))
         setIsActive(product.is_active !== false)
         setIsFeatured(product.is_featured === true)
 
@@ -244,10 +248,8 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
       toast({ title: "Campo obrigatório", description: "Preencha o nome do produto.", variant: "destructive" })
       return
     }
-    if (!sku.trim()) {
-      toast({ title: "Campo obrigatório", description: "Preencha o SKU do produto.", variant: "destructive" })
-      return
-    }
+    // SKU is now optional
+
     if (!price || Number(price) <= 0) {
       toast({ title: "Campo obrigatório", description: "Informe um preço válido.", variant: "destructive" })
       return
@@ -267,8 +269,9 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
         name: name.trim(),
         slug: slugify(name),
         description: description.trim() || undefined,
-        sku: sku.trim(),
+        sku: sku.trim() || undefined,
         price,
+        cost_price: costPrice || undefined,
         is_active: isActive,
         is_featured: isFeatured,
         category_id: categoryId || undefined,
@@ -337,7 +340,7 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">SKU *</label>
+              <label className="mb-2 block text-sm font-semibold text-foreground">SKU</label>
               <input
                 type="text"
                 placeholder="Ex: ONCA-PLAT-001"
@@ -403,12 +406,10 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-foreground">Descrição do Produto</label>
-            <textarea
-              rows={4}
+            <RichTextEditor
+              content={description}
+              onChange={setDescription}
               placeholder="Poder e atitude em cada passo..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -489,24 +490,48 @@ export default function UpdateProductAdminPage({ params }: { params: Promise<{ i
       {/* Precificação */}
       <section className="rounded-xl border border-border bg-card p-4 sm:p-6 lg:p-8 shadow-sm">
         <h2 className="mb-4 sm:mb-6 text-base sm:text-lg font-bold text-foreground">Precificação</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-foreground">Preço de Venda (R$) *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="259.90"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            <label className="mb-2 block text-sm font-semibold text-foreground">Preço de Venda *</label>
+            <InputGroup className="h-11">
+              <InputGroupAddon>
+                <InputGroupText className="font-bold text-primary">R$</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="259.90"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="text-base font-medium"
+              />
+            </InputGroup>
+            <p className="mt-1.5 text-xs text-muted-foreground">Valor que será cobrado do cliente.</p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-foreground">Preço de Custo</label>
+            <InputGroup className="h-11">
+              <InputGroupAddon>
+                <InputGroupText className="font-bold text-muted-foreground">R$</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="120.00"
+                value={costPrice}
+                onChange={(e) => setCostPrice(e.target.value)}
+                className="text-base font-medium"
+              />
+            </InputGroup>
+            <p className="mt-1.5 text-xs text-muted-foreground">Opcional. Usado para cálculo de lucro e ROI.</p>
           </div>
         </div>
       </section>
 
       {/* Grades */}
-      <section className="rounded-xl border border-border bg-card p-4 sm:p-6 lg:p-8 shadow-sm">
+      <section id="stock" className="rounded-xl border border-border bg-card p-4 sm:p-6 lg:p-8 shadow-sm">
         <h2 className="mb-2 text-base sm:text-lg font-bold text-foreground">Grades e SKU (Tamanhos) *</h2>
         <p className="mb-6 text-xs text-muted-foreground">Selecione os tamanhos fabricados para gerar a grade de estoque automaticamente.</p>
         <div className="flex flex-col gap-6">

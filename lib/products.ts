@@ -19,6 +19,7 @@ export interface Product {
   category: string | { id: string; name: string; slug: string } | null
   category_name?: string
   price: number | string
+  cost_price?: number | string
   original_price?: number
   discount_percent?: number
   images: string[] | ProductImage[]
@@ -132,8 +133,9 @@ export interface CreateProductPayload {
   name: string
   slug: string
   description?: string
-  sku: string
+  sku?: string
   price: string
+  cost_price?: string
   is_active?: boolean
   is_featured?: boolean
   category_id?: string

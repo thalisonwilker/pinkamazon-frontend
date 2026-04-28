@@ -13,20 +13,32 @@ import {
   Search,
   MoreVertical,
   Trash2,
-  Shield
+  Shield,
+  Edit2,
+  Lock
 } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function TeamPage() {
   const { toast } = useToast()
   const [admins, setAdmins] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [selectedAdmin, setSelectedAdmin] = useState<any>(null)
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -66,6 +78,7 @@ export default function TeamPage() {
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
+    setFieldErrors({})
     try {
       await apiFetch("/api/v1/users/admin/", {
         method: "POST",
@@ -90,33 +103,114 @@ export default function TeamPage() {
       })
       fetchAdmins()
     } catch (err: any) {
-      // Handle DRF style errors
-      if (err.data && typeof err.data === 'object' && !Array.isArray(err.data)) {
-        const newFieldErrors: Record<string, string> = {}
-        const newTouched: Record<string, boolean> = {}
-        
-        Object.entries(err.data).forEach(([field, messages]) => {
-          let msg = ""
-          if (Array.isArray(messages) && messages.length > 0) msg = messages[0]
-          else if (typeof messages === 'string') msg = messages
-          
-          if (msg) {
-            newFieldErrors[field] = msg
-            newTouched[field] = true
-          }
-        })
-        setFieldErrors(newFieldErrors)
-        setTouched(newTouched)
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Erro ao cadastrar",
-        description: err.message || "Verifique os dados e tente novamente.",
-      })
+      handleApiErrors(err)
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleUpdateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setFieldErrors({})
+    try {
+      const { password, ...updateData } = formData
+      await apiFetch(`/api/v1/users/${selectedAdmin.id}/`, {
+        method: "PATCH",
+        body: updateData,
+        requiresAuth: true
+      })
+      
+      toast({
+        title: "Sucesso!",
+        description: "Dados do administrador atualizados.",
+      })
+      
+      setIsEditModalOpen(false)
+      fetchAdmins()
+    } catch (err: any) {
+      handleApiErrors(err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setFieldErrors({})
+    try {
+      await apiFetch(`/api/v1/users/${selectedAdmin.id}/`, {
+        method: "PATCH",
+        body: { password: formData.password },
+        requiresAuth: true
+      })
+      
+      toast({
+        title: "Sucesso!",
+        description: "Senha alterada com sucesso.",
+      })
+      
+      setIsPasswordModalOpen(false)
+      fetchAdmins()
+    } catch (err: any) {
+      handleApiErrors(err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleApiErrors = (err: any) => {
+    if (err.data && typeof err.data === 'object' && !Array.isArray(err.data)) {
+      const newFieldErrors: Record<string, string> = {}
+      const newTouched: Record<string, boolean> = {}
+      
+      Object.entries(err.data).forEach(([field, messages]) => {
+        let msg = ""
+        if (Array.isArray(messages) && messages.length > 0) msg = messages[0]
+        else if (typeof messages === 'string') msg = messages
+        
+        if (msg) {
+          newFieldErrors[field] = msg
+          newTouched[field] = true
+        }
+      })
+      setFieldErrors(newFieldErrors)
+      setTouched(newTouched)
+    }
+
+    toast({
+      variant: "destructive",
+      title: "Erro na operação",
+      description: err.message || "Verifique os dados e tente novamente.",
+    })
+  }
+
+  const openEditModal = (admin: any) => {
+    setSelectedAdmin(admin)
+    setFormData({
+      first_name: admin.first_name || "",
+      last_name: admin.last_name || "",
+      email: admin.email || "",
+      password: "",
+      whatsapp: admin.whatsapp || "",
+      document: admin.document || "",
+      is_staff: true
+    })
+    setTouched({})
+    setFieldErrors({})
+    setIsEditModalOpen(true)
+  }
+
+  const openPasswordModal = (admin: any) => {
+    setSelectedAdmin(admin)
+    setFormData({
+      ...formData,
+      password: ""
+    })
+    setTouched({})
+    setFieldErrors({})
+    setIsPasswordModalOpen(true)
   }
 
   const filteredAdmins = admins.filter(a => 
@@ -132,13 +226,6 @@ export default function TeamPage() {
           <p className="text-sm text-muted-foreground">Administradores e colaboradores com acesso ao painel</p>
         </div>
         
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <UserPlus className="h-4 w-4" />
-          Novo Administrador
-        </button>
       </div>
 
       {/* Search and Filters */}
@@ -163,9 +250,28 @@ export default function TeamPage() {
           filteredAdmins.map((admin) => (
             <div key={admin.id} className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-all hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5">
               <div className="absolute right-4 top-4">
-                <button className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary">
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary outline-none">
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                    <DropdownMenuItem onClick={() => openEditModal(admin)} className="cursor-pointer">
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      Editar Dados
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openPasswordModal(admin)} className="cursor-pointer">
+                      <Lock className="mr-2 h-4 w-4" />
+                      Alterar Senha
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Remover Acesso
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               
               <div className="p-6">
@@ -199,11 +305,17 @@ export default function TeamPage() {
               </div>
               
               <div className="flex border-t border-border">
-                <button className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground border-r border-border">
-                  Editar Permissões
+                <button 
+                  onClick={() => openEditModal(admin)}
+                  className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground border-r border-border"
+                >
+                  Editar Perfil
                 </button>
-                <button className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-red-500 transition-colors hover:bg-red-50">
-                  Remover Acesso
+                <button 
+                  onClick={() => openPasswordModal(admin)}
+                  className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  Nova Senha
                 </button>
               </div>
             </div>
@@ -342,6 +454,173 @@ export default function TeamPage() {
                   <>
                     <Check className="h-4 w-4" />
                     Finalizar Cadastro
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Edit Admin Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsEditModalOpen(false)} />
+          <div className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] border border-white/10 bg-card shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-8 py-6">
+              <div>
+                <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Editar Administrador</h2>
+                <p className="text-xs text-muted-foreground">Atualize os dados de {selectedAdmin?.first_name}</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="rounded-full p-2 hover:bg-secondary transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateAdmin} className="p-8">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nome</label>
+                  <input 
+                    required
+                    type="text"
+                    value={formData.first_name}
+                    onBlur={() => setTouched({...touched, first_name: true})}
+                    onChange={(e) => {
+                      setFormData({...formData, first_name: e.target.value})
+                      if (touched.first_name) setFieldErrors({...fieldErrors, first_name: ""})
+                    }}
+                    className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('first_name')}`}
+                  />
+                  {touched.first_name && fieldErrors.first_name && <p className="text-[10px] font-bold text-red-500 ml-1">{fieldErrors.first_name}</p>}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Sobrenome</label>
+                  <input 
+                    required
+                    type="text"
+                    value={formData.last_name}
+                    onBlur={() => setTouched({...touched, last_name: true})}
+                    onChange={(e) => {
+                      setFormData({...formData, last_name: e.target.value})
+                      if (touched.last_name) setFieldErrors({...fieldErrors, last_name: ""})
+                    }}
+                    className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('last_name')}`}
+                  />
+                  {touched.last_name && fieldErrors.last_name && <p className="text-[10px] font-bold text-red-500 ml-1">{fieldErrors.last_name}</p>}
+                </div>
+                <div className="col-span-2 flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">E-mail</label>
+                  <input 
+                    required
+                    type="email"
+                    value={formData.email}
+                    onBlur={() => setTouched({...touched, email: true})}
+                    onChange={(e) => {
+                      setFormData({...formData, email: e.target.value})
+                      if (touched.email) setFieldErrors({...fieldErrors, email: ""})
+                    }}
+                    className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('email')}`}
+                  />
+                  {touched.email && fieldErrors.email && <p className="text-[10px] font-bold text-red-500 ml-1">{fieldErrors.email}</p>}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">WhatsApp</label>
+                  <input 
+                    type="text"
+                    value={formData.whatsapp}
+                    onBlur={() => setTouched({...touched, whatsapp: true})}
+                    onChange={(e) => {
+                      setFormData({...formData, whatsapp: e.target.value})
+                      if (touched.whatsapp) setFieldErrors({...fieldErrors, whatsapp: ""})
+                    }}
+                    className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('whatsapp')}`}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">CPF / Documento</label>
+                  <input 
+                    type="text"
+                    value={formData.document}
+                    onBlur={() => setTouched({...touched, document: true})}
+                    onChange={(e) => {
+                      setFormData({...formData, document: e.target.value})
+                      if (touched.document) setFieldErrors({...fieldErrors, document: ""})
+                    }}
+                    className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('document')}`}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isSaving}
+                className="w-full mt-8 flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-sm font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Salvar Alterações
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setIsPasswordModalOpen(false)} />
+          <div className="relative w-full max-w-sm overflow-hidden rounded-[2.5rem] border border-white/10 bg-card shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-8 py-6">
+              <div>
+                <h2 className="text-xl font-black text-foreground uppercase tracking-tight">Alterar Senha</h2>
+                <p className="text-xs text-muted-foreground">{selectedAdmin?.email}</p>
+              </div>
+              <button onClick={() => setIsPasswordModalOpen(false)} className="rounded-full p-2 hover:bg-secondary transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePassword} className="p-8">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nova Senha</label>
+                <input 
+                  required
+                  type="password"
+                  value={formData.password}
+                  onBlur={() => setTouched({...touched, password: true})}
+                  onChange={(e) => {
+                    setFormData({...formData, password: e.target.value})
+                    if (touched.password) setFieldErrors({...fieldErrors, password: ""})
+                  }}
+                  className={`rounded-xl border bg-secondary/20 p-3.5 text-sm transition-all ${getInputErrorClass('password')}`}
+                  placeholder="Mínimo 8 caracteres"
+                />
+                {touched.password && fieldErrors.password && <p className="text-[10px] font-bold text-red-500 ml-1">{fieldErrors.password}</p>}
+              </div>
+
+              <div className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 mb-8">
+                <Lock className="h-5 w-5 text-amber-500" />
+                <p className="text-[10px] font-bold text-muted-foreground leading-normal italic">
+                  O usuário será desconectado e precisará usar a nova senha no próximo acesso.
+                </p>
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isSaving}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-black py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4" />
+                    Confirmar Nova Senha
                   </>
                 )}
               </button>

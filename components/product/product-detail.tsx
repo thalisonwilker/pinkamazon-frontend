@@ -398,7 +398,10 @@ export function ProductDetail({ product }: { product: Product }) {
           {/* Description */}
           <div className="mt-6 border-t border-border pt-6">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Descrição</h3>
-            <p className="text-sm leading-relaxed text-muted-foreground">{product.description || "Sem descrição disponível para este produto."}</p>
+            <div 
+              className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
+              dangerouslySetInnerHTML={{ __html: product.description || "Sem descrição disponível para este produto." }}
+            />
             {!!product.details?.length && (
             <ul className="mt-4 flex flex-col gap-1.5">
               {product.details.map((detail) => (
