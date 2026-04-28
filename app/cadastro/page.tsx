@@ -257,7 +257,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -400,7 +400,7 @@ export default function RegisterPage() {
             <div className="mt-2 flex items-start gap-3">
               <input type="checkbox" id="terms" required className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary" />
               <label htmlFor="terms" className="text-xs text-muted-foreground leading-relaxed">
-                Eu concordo com os <Link href="#" className="font-semibold text-foreground underline decoration-primary/30 underline-offset-2">Termos de Serviço</Link> e <Link href="#" className="font-semibold text-foreground underline decoration-primary/30 underline-offset-2">Política de Privacidade</Link>.
+                Eu concordo com os <Link href="/termos" className="font-semibold text-foreground underline decoration-primary/30 underline-offset-2">Termos de Serviço</Link> e <Link href="/privacidade" className="font-semibold text-foreground underline decoration-primary/30 underline-offset-2">Política de Privacidade</Link>.
               </label>
             </div>
 

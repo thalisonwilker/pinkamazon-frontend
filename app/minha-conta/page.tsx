@@ -1282,6 +1282,7 @@ function AccountContent() {
                 <div>
                   <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Senha Atual</label>
                   <input 
+                    id="old_password"
                     type="password" 
                     required
                     value={passwordFormData.old_password}
@@ -1297,6 +1298,7 @@ function AccountContent() {
                 <div>
                   <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nova Senha</label>
                   <input 
+                    id="new_password"
                     type="password" 
                     required
                     minLength={8}
@@ -1313,6 +1315,7 @@ function AccountContent() {
                 <div>
                   <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Confirmar Nova Senha</label>
                   <input 
+                    id="new_password_confirm"
                     type="password" 
                     required
                     value={passwordFormData.new_password_confirm}
