@@ -925,23 +925,7 @@ export default function SettingsAdminPage() {
                 )}
               </div>
             </div>
-
-            {/* Eventos Esperados */}
-            <div className="mt-8">
-              <span className="text-[11px] font-bold text-foreground">Eventos monitorados:</span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {["checkout.session.completed", "payment_intent.succeeded", "payment_intent.payment_failed"].map(event => (
-                  <span key={event} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                    <Activity className="h-3 w-3 opacity-50" />
-                    {event}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
-
-
-
 
           <div className="mt-4 flex justify-end">
             <button
