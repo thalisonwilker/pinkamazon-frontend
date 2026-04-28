@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { createPortal } from "react-dom"
 import {
   User,
   ShoppingBag,
@@ -91,10 +92,10 @@ function OrderCard({ order }: { order: Order }) {
           {order.items.map((item, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                {item.product?.images?.[0]?.image ? (
+                {item.product && getProductImageUrl(item.product as any) ? (
                   <Image
-                    src={getProductImageUrl(item.product)}
-                    alt={item.product_name_snapshot}
+                    src={getProductImageUrl(item.product as any)!}
+                    alt={item.product_name_snapshot || "Produto"}
                     fill
                     className="object-cover"
                     sizes="56px"
@@ -173,7 +174,7 @@ function OrderCard({ order }: { order: Order }) {
 
 function AccountContent() {
   const router = useRouter()
-  const { user, logout, isLoading, fetchMe } = useAuth()
+  const { user, logout, isLoading, fetchMe, updateUser } = useAuth()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<Tab>("pedidos")
   const [orders, setOrders] = useState<Order[]>([])
@@ -183,15 +184,15 @@ function AccountContent() {
     first_name: user?.first_name ?? "",
     last_name: user?.last_name ?? "",
     email: user?.email ?? "",
-    phone: user?.phone ?? "",
-    cpf: user?.document ?? "",
+    phone: user?.whatsapp ?? "",
+    cpf: ((typeof user?.document === "object" ? user.document?.doc_number : user?.document) as string) ?? "",
     birthdate: user?.birthdate ?? "",
   })
   const [profileSaved, setProfileSaved] = useState(false)
   const [notificationSettings, setNotificationSettings] = useState({
-    promo_emails: user?.promo_emails ?? true,
-    order_updates: user?.order_updates ?? true,
-    wishlist_notifications: user?.wishlist_notifications ?? true,
+    promo_emails: user?.preferences?.promotional_emails ?? true,
+    order_updates: user?.preferences?.order_updates ?? true,
+    wishlist_notifications: user?.preferences?.wishlist_notifications ?? true,
   })
   const [updatingNotification, setUpdatingNotification] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -215,6 +216,21 @@ function AccountContent() {
     is_default: false,
   })
   const [isSearchingZip, setIsSearchingZip] = useState(false)
+  
+  // Password Change State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordFormData, setPasswordFormData] = useState({
+    old_password: "",
+    new_password: "",
+    new_password_confirm: ""
+  })
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const fetchAddresses = async () => {
     try {
@@ -232,6 +248,18 @@ function AccountContent() {
       fetchAddresses()
     }
   }, [user])
+
+  // Body scroll lock
+  useEffect(() => {
+    if (isAddressModalOpen || isPasswordModalOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+    return () => {
+      document.body.style.overflow = "unset"
+    }
+  }, [isAddressModalOpen, isPasswordModalOpen])
 
   const handleLookupZip = async (zip: string) => {
     const cleanZip = zip.replace(/\D/g, "")
@@ -271,7 +299,18 @@ function AccountContent() {
       
       await apiFetch(url, {
         method,
-        body: addressFormData,
+        body: {
+          label: addressFormData.label,
+          recipient_name: addressFormData.recipient,
+          zip_code: addressFormData.zip_code,
+          street: addressFormData.street,
+          number: addressFormData.number,
+          complement: addressFormData.complement,
+          neighborhood: addressFormData.neighborhood,
+          city: addressFormData.city_name,
+          state: addressFormData.state,
+          is_default: addressFormData.is_default
+        },
         requiresAuth: true
       })
       
@@ -304,6 +343,20 @@ function AccountContent() {
     }
   }
 
+  const handleSetDefaultAddress = async (id: number) => {
+    try {
+      const { apiFetch } = await import("@/lib/api")
+      await apiFetch(`/api/v1/users/${user?.id}/addresses/${id}/`, {
+        method: "PATCH",
+        body: { is_default: true },
+        requiresAuth: true
+      })
+      fetchAddresses()
+    } catch (error) {
+      console.error("Erro ao definir endereço padrão:", error)
+    }
+  }
+
   const openAddAddress = () => {
     setAddressFormData({
       id: null,
@@ -326,15 +379,15 @@ function AccountContent() {
     setAddressFormData({
       id: addr.id,
       label: addr.label,
-      recipient: addr.recipient,
+      recipient: addr.recipient_name,
       zip_code: addr.zip_code,
       street: addr.street,
       number: addr.number,
       complement: addr.complement || "",
       neighborhood: addr.neighborhood,
-      city: addr.city,
-      city_name: addr.city_detail?.name || "",
-      state: addr.city_detail?.state_abbreviation || "",
+      city: null,
+      city_name: addr.city || "",
+      state: addr.state || "",
       is_default: addr.is_default,
     })
     setIsAddressModalOpen(true)
@@ -346,8 +399,8 @@ function AccountContent() {
         first_name: user.first_name ?? "",
         last_name: user.last_name ?? "",
         email: user.email ?? "",
-        phone: user.phone ?? "",
-        cpf: user.document ?? "",
+        phone: user.whatsapp ?? "",
+        cpf: ((typeof user.document === "object" ? user.document?.doc_number : user.document) as string) ?? "",
         birthdate: user.birthdate ?? "",
       })
       setNotificationSettings({
@@ -359,7 +412,7 @@ function AccountContent() {
       // Fetch orders
       setOrdersLoading(true)
       getOrders()
-        .then(setOrders)
+        .then(data => setOrders(data.results))
         .catch(err => console.error("Error fetching orders:", err))
         .finally(() => setOrdersLoading(false))
     }
@@ -395,21 +448,26 @@ function AccountContent() {
     
     try {
       const { apiFetch } = await import("@/lib/api")
-      const url = user?.id ? `/api/v1/users/${user.id}/` : "/api/v1/users/me/"
-      await apiFetch(url, {
-        method,
+      const url = "/api/v1/users/me/"
+      const updatedUser: any = await apiFetch(url, {
+        method: "PATCH",
         body: {
           first_name: profileData.first_name,
           last_name: profileData.last_name,
           email: profileData.email,
-          phone: profileData.phone,
+          whatsapp: profileData.phone, // Map phone to whatsapp
           birthdate: profileData.birthdate || null,
-          document: profileData.cpf
+          document: profileData.cpf // Map cpf to document
         },
         requiresAuth: true
       })
       
+      updateUser(updatedUser)
       setProfileSaved(true)
+      toast({
+        title: "Sucesso!",
+        description: "Seus dados foram atualizados com sucesso.",
+      })
       await fetchMe() // Refresh context data to keep UI in sync
       setTimeout(() => setProfileSaved(false), 2500)
     } catch (error) {
@@ -452,6 +510,50 @@ function AccountContent() {
     }
   }
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordErrors({})
+    
+    if (passwordFormData.new_password !== passwordFormData.new_password_confirm) {
+      setPasswordErrors({ new_password_confirm: "As senhas não coincidem." })
+      return
+    }
+    
+    setIsChangingPassword(true)
+    try {
+      const { apiFetch } = await import("@/lib/api")
+      // Usando a nova rota mais consistente
+      await apiFetch("/api/v1/users/me/change-password/", {
+        method: "POST",
+        body: passwordFormData,
+        requiresAuth: true
+      })
+      
+      toast({ title: "Sucesso!", description: "Sua senha foi alterada com sucesso." })
+      setIsPasswordModalOpen(false)
+      setPasswordFormData({ old_password: "", new_password: "", new_password_confirm: "" })
+      setPasswordErrors({})
+    } catch (error: any) {
+      console.error("Erro ao mudar senha:", error)
+      
+      // Mapeia erros do backend para o estado local
+      const errors: Record<string, string> = {}
+      if (error.data?.errors) {
+        error.data.errors.forEach((err: any) => {
+          if (err.field) {
+            errors[err.field] = err.message
+          } else {
+            errors.general = err.message
+          }
+        })
+      }
+      
+      setPasswordErrors(errors)
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   const navItems: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "pedidos", label: "Meus Pedidos", icon: ShoppingBag },
     { id: "perfil", label: "Meus Dados", icon: User },
@@ -486,10 +588,10 @@ function AccountContent() {
                 </p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <div className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              {/* <div className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                 <Star className="h-3 w-3 fill-primary" />
                 Cliente VIP · Gold
-              </div>
+              </div> */}
             </div>
 
             {/* Stats strip */}
@@ -568,8 +670,8 @@ function AccountContent() {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[
                     { label: "Total de pedidos", value: orders.length, icon: Package },
-                    { label: "Entregues", value: orders.filter((o) => o.order_status === "DELIVERED").length, icon: Check },
-                    { label: "Em trânsito", value: orders.filter((o) => o.order_status === "SHIPPED").length, icon: Truck },
+                    { label: "Entregues", value: orders.filter((o) => o.status === "delivered").length, icon: Check },
+                    { label: "Em trânsito", value: orders.filter((o) => o.status === "shipped").length, icon: Truck },
                     {
                       label: "Total gasto",
                       value: formatPrice(orders.reduce((s, o) => s + Number(o.total_amount), 0)),
@@ -609,38 +711,6 @@ function AccountContent() {
             {/* PERFIL */}
             {activeTab === "perfil" && (
               <div className="flex flex-col gap-5">
-                {/* Summary card */}
-                <div className="flex flex-wrap items-center gap-5 rounded-xl border border-border bg-card p-5">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 ring-4 ring-primary/20">
-                    <User className="h-8 w-8 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-foreground">
-                        {user.first_name} {user.last_name}
-                      </h2>
-                      <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                        <BadgeCheck className="h-3 w-3" /> Verificado
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Membro desde Janeiro 2024 · Cliente VIP Gold</p>
-                    <div className="mt-2 flex flex-wrap gap-4">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5 text-primary" />
-                        {user.email}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Phone className="h-3.5 w-3.5 text-primary" />
-                        {user.phone}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5 text-primary" />
-                        15/06/1995
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Form */}
                 <div className="rounded-xl border border-border bg-card">
                   <div className="border-b border-border px-6 py-5">
@@ -782,6 +852,15 @@ function AccountContent() {
                             </div>
                             
                             <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              {!addr.is_default && (
+                                <button 
+                                  onClick={() => handleSetDefaultAddress(addr.id)}
+                                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                  title="Definir como padrão"
+                                >
+                                  <Star className="h-4 w-4" />
+                                </button>
+                              )}
                               <button 
                                 onClick={() => openEditAddress(addr)}
                                 className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -935,7 +1014,10 @@ function AccountContent() {
                   <h3 className="font-semibold text-foreground">Segurança</h3>
                 </div>
                 <div className="flex flex-col divide-y divide-border">
-                  <button className="flex items-center justify-between px-6 py-4 text-left transition-colors hover:bg-secondary/50">
+                  <button 
+                    onClick={() => setIsPasswordModalOpen(true)}
+                    className="flex items-center justify-between px-6 py-4 text-left transition-colors hover:bg-secondary/50"
+                  >
                     <div>
                       <p className="text-sm font-semibold text-foreground">Alterar senha</p>
                       <p className="text-xs text-muted-foreground">Atualize sua senha de acesso</p>
@@ -963,15 +1045,15 @@ function AccountContent() {
         </div>
       </div>
 
-      {/* Address Modal - Portaled to avoid template overflow/stacking issues */}
-      {isAddressModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Address Modal */}
+      {isAddressModalOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
           <div 
-            className="absolute inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" 
             onClick={() => setIsAddressModalOpen(false)} 
           />
           
-          <div className="relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/10 bg-card shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-top-4 duration-300">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col rounded-[2rem] border border-white/10 bg-card shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300">
             {/* Header */}
             <div className="flex items-center justify-between bg-secondary/50 px-8 py-6 backdrop-blur-xl">
               <div>
@@ -988,7 +1070,7 @@ function AccountContent() {
               </button>
             </div>
             
-            <form onSubmit={handleSaveAddress} className="max-h-[75vh] overflow-y-auto p-8 custom-scrollbar">
+            <form onSubmit={handleSaveAddress} className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               <div className="space-y-8">
                 {/* Seção 1: Identificação */}
                 <div>
@@ -1112,16 +1194,25 @@ function AccountContent() {
                     
                     <div className="pt-2 sm:col-span-2">
                       <label className="group flex cursor-pointer items-center gap-3">
-                        <div className="relative flex h-6 w-6 items-center justify-center rounded-md border-2 border-border bg-background transition-all group-hover:border-primary peer-checked:bg-primary">
+                        <div className={`relative flex h-6 w-6 items-center justify-center rounded-md border-2 bg-background transition-all ${
+                          addressFormData.is_default 
+                            ? "border-primary bg-primary" 
+                            : "border-border group-hover:border-primary"
+                        } ${addressFormData.id && addressFormData.is_default ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}>
                           <input 
                             type="checkbox" 
                             checked={addressFormData.is_default}
+                            disabled={!!(addressFormData.id && addressFormData.is_default)}
                             onChange={(e) => setAddressFormData(p => ({ ...p, is_default: e.target.checked }))}
-                            className="peer absolute inset-0 cursor-pointer opacity-0"
+                            className="peer absolute inset-0 cursor-pointer disabled:cursor-not-allowed opacity-0"
                           />
                           {addressFormData.is_default && <Check className="h-4 w-4 text-primary-foreground" />}
                         </div>
-                        <span className="text-xs font-bold uppercase tracking-widest text-foreground transition-colors group-hover:text-primary">Definir como endereço padrão</span>
+                        <span className={`text-xs font-bold uppercase tracking-widest transition-colors ${
+                          addressFormData.is_default ? "text-primary" : "text-foreground group-hover:text-primary"
+                        }`}>
+                          {addressFormData.is_default ? "Este é o seu endereço padrão" : "Definir como endereço padrão"}
+                        </span>
                       </label>
                     </div>
                   </div>
@@ -1151,7 +1242,109 @@ function AccountContent() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Password Modal */}
+      {isPasswordModalOpen && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" 
+            onClick={() => setIsPasswordModalOpen(false)} 
+          />
+          
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col rounded-[2.5rem] border border-white/10 bg-card shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between bg-secondary/50 px-8 py-6">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-foreground">Alterar Senha</h3>
+                <p className="text-xs text-muted-foreground mt-1">Proteja sua conta com uma senha forte.</p>
+              </div>
+              <button 
+                onClick={() => setIsPasswordModalOpen(false)} 
+                className="group flex h-10 w-10 items-center justify-center rounded-full bg-background transition-all hover:bg-primary hover:text-primary-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handlePasswordChange} className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              {passwordErrors.general && (
+                <div className="mb-6 flex items-start gap-3 rounded-2xl bg-destructive/10 p-4 text-xs font-medium text-destructive animate-in fade-in slide-in-from-top-2">
+                  <div className="mt-0.5 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
+                  <p>{passwordErrors.general}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Senha Atual</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={passwordFormData.old_password}
+                    onChange={(e) => setPasswordFormData(p => ({ ...p, old_password: e.target.value }))}
+                    className={`w-full rounded-xl border bg-background/50 px-5 py-3.5 text-sm ring-primary/20 transition-all focus:outline-none focus:ring-4 ${
+                      passwordErrors.old_password ? 'border-destructive ring-destructive/20 focus:border-destructive' : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {passwordErrors.old_password && (
+                    <p className="mt-1.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-left-1">{passwordErrors.old_password}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nova Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    minLength={8}
+                    value={passwordFormData.new_password}
+                    onChange={(e) => setPasswordFormData(p => ({ ...p, new_password: e.target.value }))}
+                    className={`w-full rounded-xl border bg-background/50 px-5 py-3.5 text-sm ring-primary/20 transition-all focus:outline-none focus:ring-4 ${
+                      passwordErrors.new_password ? 'border-destructive ring-destructive/20 focus:border-destructive' : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {passwordErrors.new_password && (
+                    <p className="mt-1.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-left-1">{passwordErrors.new_password}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">Confirmar Nova Senha</label>
+                  <input 
+                    type="password" 
+                    required
+                    value={passwordFormData.new_password_confirm}
+                    onChange={(e) => setPasswordFormData(p => ({ ...p, new_password_confirm: e.target.value }))}
+                    className={`w-full rounded-xl border bg-background/50 px-5 py-3.5 text-sm ring-primary/20 transition-all focus:outline-none focus:ring-4 ${
+                      passwordErrors.new_password_confirm ? 'border-destructive ring-destructive/20 focus:border-destructive' : 'border-border focus:border-primary'
+                    }`}
+                  />
+                  {passwordErrors.new_password_confirm && (
+                    <p className="mt-1.5 text-[10px] font-bold text-destructive animate-in fade-in slide-in-from-left-1">{passwordErrors.new_password_confirm}</p>
+                  )}
+                </div>
+              </div>
+              
+              <button 
+                type="submit"
+                disabled={isChangingPassword}
+                className="mt-8 w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-xs font-black uppercase tracking-widest text-primary-foreground shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              >
+                {isChangingPassword ? (
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Atualizar Senha
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

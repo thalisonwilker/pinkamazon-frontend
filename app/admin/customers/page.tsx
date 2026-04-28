@@ -93,7 +93,7 @@ export default function CustomersAdminPage() {
                     <div className="font-medium text-foreground">{customer.name}</div>
                     <div className="text-xs text-muted-foreground">{customer.email}</div>
                   </td>
-                  <td className="px-6 py-4 text-foreground font-mono text-xs">{customer.document?.doc_number || "N/A"}</td>
+                  <td className="px-6 py-4 text-foreground font-mono text-xs">{customer.document || "N/A"}</td>
                   <td className="px-6 py-4 text-foreground">{customer.phone || "N/A"}</td>
                   <td className="px-6 py-4">
                     <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700">

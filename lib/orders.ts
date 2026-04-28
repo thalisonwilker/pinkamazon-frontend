@@ -4,6 +4,7 @@ export interface OrderItem {
   id: string
   product_id: string
   product_name_snapshot: string
+  product?: any
   quantity: number
   unit_price: number
   subtotal: number
@@ -33,9 +34,19 @@ export interface OrderCreationPayload {
   billing_address: string;
 }
 
-export async function getOrders(): Promise<Order[]> {
-  const response = await apiFetch<any>("/api/v1/orders/", { requiresAuth: true })
-  return response?.data?.results || response?.results || response?.data || response || []
+export async function getOrders(params?: Record<string, string | number>): Promise<{ results: Order[]; count: number }> {
+  const query = params ? "?" + new URLSearchParams(params as any).toString() : ""
+  const response = await apiFetch<any>(`/api/v1/orders/${query}`, { requiresAuth: true })
+  
+  // DRF with pagination returns { results: [], count: 123, ... }
+  // My custom renderer might wrap it further. 
+  // Based on the CustomJSONRenderer, it might be { success: true, data: { results: [], count: 123 } }
+  
+  const data = response?.data || response
+  return {
+    results: data?.results || (Array.isArray(data) ? data : []),
+    count: data?.count || (Array.isArray(data) ? data.length : 0)
+  }
 }
 
 export async function getOrderById(id: string): Promise<Order> {

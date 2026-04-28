@@ -18,6 +18,7 @@ import {
   Store,
   MessageSquareHeart,
   TicketPercent,
+  Ticket,
   ClipboardList,
   Truck,
   RotateCcw,
@@ -41,24 +42,25 @@ const navigation = [
   { name: 'Comercial', href: '/admin/comercial', icon: ShoppingBag, group: 'Visão Geral' },
   { name: 'Financeiro', href: '/admin/financeiro', icon: CircleDollarSign, group: 'Visão Geral' },
   
+  // Produtos & Comercial
+  { name: 'Produtos', href: '/admin/products', icon: PackageSearch, group: 'Produtos' },
+  { name: 'Categorias', href: '/admin/categories', icon: Tags, group: 'Produtos' },
+  { name: 'Pedidos', href: '/admin/orders', icon: ShoppingBag, group: 'Produtos' },
+  { name: 'Clientes (CRM)', href: '/admin/crm', icon: Users, group: 'Produtos' },
+  { name: 'Cupons', href: '#', icon: Ticket, group: 'Produtos', comingSoon: true },
+  { name: 'Coleções', href: '#', icon: Layers, group: 'Produtos', comingSoon: true },
+
   // Operação
-  { name: 'Pedidos', href: '/admin/orders', icon: ClipboardList, group: 'Operação' },
   { name: 'Expedição', href: '#', icon: Truck, group: 'Operação', comingSoon: true },
   { name: 'Pagamentos', href: '/admin/payments', icon: CircleDollarSign, group: 'Operação' },
   { name: 'Conciliação', href: '#', icon: Wallet, group: 'Operação', comingSoon: true },
 
-  // Catálogo
-  { name: 'Produtos', href: '/admin/products', icon: PackageSearch, group: 'Catálogo' },
-  { name: 'Categorias', href: '/admin/categories', icon: Tags, group: 'Catálogo' },
-  { name: 'Coleções', href: '#', icon: Layers, group: 'Catálogo', comingSoon: true },
 
   // Estoque
   { name: 'Estoque Atual', href: '/admin/inventory', icon: Boxes, group: 'Estoque' },
   { name: 'Movimentações', href: '#', icon: History, group: 'Estoque', comingSoon: true },
 
-  // Clientes
-  { name: 'Clientes', href: '/admin/customers', icon: Users, group: 'Clientes' },
-  { name: 'CRM', href: '#', icon: Users, group: 'Clientes', comingSoon: true },
+  // Remover o grupo Clientes duplicado pois já está em Produtos
 
   // Marketing
   { name: 'Promoções', href: '/admin/promotions', icon: TicketPercent, group: 'Marketing' },
@@ -77,6 +79,7 @@ const navigation = [
 
   // Sistema
   { name: 'Configurações', href: '/admin/settings', icon: Settings, group: 'Sistema' },
+  { name: 'Equipe', href: '/admin/team', icon: ShieldCheck, group: 'Sistema' },
   { name: 'Auditoria', href: '#', icon: ShieldCheck, group: 'Sistema', comingSoon: true },
 ]
 
@@ -127,7 +130,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </div>
       
       <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4 lg:px-4 lg:py-6">
-        {["Visão Geral", "Operação", "Catálogo", "Estoque", "Clientes", "Marketing", "Conteúdo", "Atendimento", "Internacional", "Sistema"].map((group) => (
+        {["Visão Geral", "Produtos", "Operação", "Estoque", "Marketing", "Conteúdo", "Atendimento", "Internacional", "Sistema"].map((group) => (
           <div key={group} className="mb-4 lg:mb-6">
             <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground lg:mb-2 lg:px-4 lg:text-xs">{group}</p>
             <div className="flex flex-col gap-0.5">

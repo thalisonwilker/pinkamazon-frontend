@@ -28,10 +28,10 @@ export function CheckoutContent() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
 
-  const enabledPaymentMethods = [
-    settings.stripeEnableCards ? "Cartão" : null,
-    settings.stripeEnablePix ? "Pix" : null,
-  ].filter(Boolean) as string[]
+  const payments = [
+    { id: "pix", name: "Pix", enabled: settings.stripe_enable_pix },
+    { id: "card", name: "Cartão de Crédito (Stripe)", enabled: settings.stripe_enable_cards },
+  ].filter((p) => p.enabled)
 
   const finalTotal = totalPrice
 

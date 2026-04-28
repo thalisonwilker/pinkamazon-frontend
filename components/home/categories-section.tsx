@@ -1,10 +1,17 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { categories } from "@/lib/products"
+import { getCategories } from "@/lib/products"
 
 export function CategoriesSection() {
+  const [categories, setCategories] = useState<any[]>([])
+
+  useEffect(() => {
+    getCategories().then((data) => setCategories(data.slice(0, 10)))
+  }, [])
+
   return (
     <section className="px-4 py-8 md:px-8 md:py-12">
       <h2 className="mb-6 font-serif text-2xl font-black uppercase tracking-tight text-foreground md:text-3xl">

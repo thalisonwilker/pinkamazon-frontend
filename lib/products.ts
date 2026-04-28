@@ -174,8 +174,8 @@ function buildProductRequestBody(data: Partial<CreateProductPayload>): Record<st
     }
 
     if (key === "uploaded_images" && Array.isArray(value)) {
-      value.forEach((file) => {
-        formData.append("uploaded_images", file)
+      value.forEach((file: any) => {
+        formData.append("uploaded_images", file as Blob)
       })
       continue
     }

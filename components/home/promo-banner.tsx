@@ -8,11 +8,11 @@ export function PromoBanner() {
   const { settings } = usePublicSettings()
   const paymentPerks = []
 
-  if (settings.stripeEnableCards) {
+  if (settings.stripe_enable_cards) {
     paymentPerks.push({ icon: CreditCard, label: "Cartão", desc: "Pagamento seguro pela Stripe" })
   }
 
-  if (settings.stripeEnablePix) {
+  if (settings.stripe_enable_pix) {
     paymentPerks.push({ icon: CreditCard, label: "Pix", desc: "Pagamento instantâneo disponível" })
   }
 

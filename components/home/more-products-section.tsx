@@ -1,11 +1,18 @@
 "use client"
 
-import { products } from "@/lib/products"
+import { useState, useEffect } from "react"
+import { getProducts, Product } from "@/lib/products"
 import { ProductCard } from "@/components/product-card"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 export function MoreProductsSection() {
+  const [products, setProducts] = useState<Product[]>([])
+
+  useEffect(() => {
+    getProducts().then((data) => setProducts(data.slice(4)))
+  }, [])
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 lg:px-8 lg:py-20">
       <div className="mb-10 flex items-end justify-between">
@@ -27,7 +34,7 @@ export function MoreProductsSection() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-        {products.slice(4).map((product) => (
+        {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

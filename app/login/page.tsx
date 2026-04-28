@@ -17,6 +17,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+
+  const getInputErrorClass = (id: string) => {
+    const hasError = touched[id] && fieldErrors[id]
+    const val = id === 'email' ? email : password
+    const isValid = touched[id] && !fieldErrors[id] && val
+    
+    if (hasError) return "border-red-500 focus:border-red-500 focus:ring-red-500/10 animate-shake"
+    if (isValid) return "border-green-500/50 focus:border-green-500 focus:ring-green-500/10"
+    return "border-border focus:border-primary focus:ring-primary/10"
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +44,47 @@ export default function LoginPage() {
       }
     } else {
       const errorObj = result.error
+      
+      if (errorObj && typeof errorObj === 'object') {
+        const errorList = Array.isArray(errorObj.data) 
+          ? errorObj.data 
+          : (errorObj.data && Array.isArray(errorObj.data.errors) ? errorObj.data.errors : null);
+
+        if (errorList) {
+          const newFieldErrors: Record<string, string> = {}
+          const newTouched: Record<string, boolean> = {}
+
+          errorList.forEach((errItem: any) => {
+            if (errItem.field && errItem.message) {
+              let fieldId = errItem.field.toLowerCase()
+              if (fieldId === 'username') fieldId = 'email'
+              newFieldErrors[fieldId] = errItem.message
+              newTouched[fieldId] = true
+            }
+          })
+          setFieldErrors(newFieldErrors)
+          setTouched(newTouched)
+        } else if (errorObj.data && typeof errorObj.data === 'object') {
+          const newFieldErrors: Record<string, string> = {}
+          const newTouched: Record<string, boolean> = {}
+          
+          Object.entries(errorObj.data).forEach(([field, messages]) => {
+            let msg = ""
+            if (Array.isArray(messages) && messages.length > 0) msg = messages[0]
+            else if (typeof messages === 'string') msg = messages
+            
+            if (msg && typeof msg === 'string') {
+              let fieldId = field.toLowerCase()
+              if (fieldId === 'username') fieldId = 'email'
+              newFieldErrors[fieldId] = msg
+              newTouched[fieldId] = true
+            }
+          })
+          setFieldErrors(newFieldErrors)
+          setTouched(newTouched)
+        }
+      }
+
       const message = (errorObj && typeof errorObj === 'object' ? errorObj.message : errorObj) || "Erro ao entrar. Verifique suas credenciais."
       
       toast({
@@ -72,12 +125,19 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: "" }))
+                  }}
                   placeholder="seu@email.com"
                   required
-                  className="w-full rounded-lg border border-border bg-background py-3 pl-12 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className={`w-full rounded-lg border bg-background py-3 pl-12 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 ${getInputErrorClass('email')}`}
                 />
               </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.email && fieldErrors.email ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.email || "Seu e-mail de acesso"}
+              </p>
             </div>
 
             <div>
@@ -88,10 +148,14 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: "" }))
+                  }}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded-lg border border-border bg-background py-3 pl-12 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className={`w-full rounded-lg border bg-background py-3 pl-12 pr-12 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 ${getInputErrorClass('password')}`}
                 />
                 <button
                   type="button"
@@ -102,6 +166,9 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${touched.password && fieldErrors.password ? "text-red-500" : "text-muted-foreground"}`}>
+                {fieldErrors.password || "Mínimo de 8 caracteres"}
+              </p>
             </div>
 
             <div className="flex items-center justify-end">
@@ -126,7 +193,7 @@ export default function LoginPage() {
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <div className="flex flex-col gap-3">
+          {/* <div className="flex flex-col gap-3">
             <button type="button" className="flex items-center justify-center gap-3 rounded-lg border-2 border-border bg-background py-3 text-sm font-semibold text-foreground transition-all hover:border-muted-foreground/30 hover:bg-secondary">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -142,7 +209,7 @@ export default function LoginPage() {
               </svg>
               Continuar com Facebook
             </button>
-          </div>
+          </div> */}
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             Não tem uma conta?{" "}

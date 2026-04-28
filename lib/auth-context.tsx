@@ -13,6 +13,7 @@ export interface User {
   last_name?: string
   email: string
   phone?: string
+  birthdate?: string
   document?: string | {
     doc_type: string
     doc_number: string
@@ -40,6 +41,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   token: string | null
+  updateUser: (user: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -103,9 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let userId = getStoredToken(USER_ID_KEY)
       
-      // If no ID in storage, try to decode from token
-      if (!userId) {
-        const decoded = decodeJwt(token)
+      if (!userId && storedToken) {
+        const decoded = decodeJwt(storedToken)
         userId = decoded?.user_id || decoded?.id || decoded?.sub
       }
 
@@ -129,6 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const updateUser = (updatedFields: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...updatedFields } : null)
   }
 
   useEffect(() => {
@@ -239,7 +244,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fetchMe, 
       isAuthenticated: !!user, 
       isLoading,
-      token
+      token,
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>

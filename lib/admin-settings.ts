@@ -6,6 +6,7 @@ export type BannerSetting = {
   enabled: boolean
   file_name: string
   alt: string
+  link?: string
 }
 
 export type AdminSettings = {
@@ -100,8 +101,9 @@ export const DEFAULT_PUBLIC_SETTINGS: PublicSettings = {
 function normalizeBannerSetting(input: Partial<BannerSetting> | undefined, fallback: BannerSetting): BannerSetting {
   return {
     enabled: input?.enabled ?? fallback.enabled,
-    file_name: input?.file_name ?? input?.fileName ?? fallback.file_name,
+    file_name: input?.file_name ?? (input as any)?.fileName ?? fallback.file_name,
     alt: input?.alt ?? fallback.alt,
+    link: input?.link ?? fallback.link,
   }
 }
 

@@ -1,0 +1,31 @@
+app/admin/customers/page.tsx(96,99): error TS2339: Property 'doc_number' does not exist on type 'string'.
+app/admin/payments/page.tsx(14,13): error TS2345: Argument of type 'Dispatch<SetStateAction<Order[]>>' is not assignable to parameter of type '(value: { results: Order[]; count: number; }) => void | PromiseLike<void>'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type '{ results: Order[]; count: number; }' is not assignable to type 'SetStateAction<Order[]>'.
+app/minha-conta/page.tsx(94,23): error TS2339: Property 'product' does not exist on type 'OrderItem'.
+app/minha-conta/page.tsx(94,58): error TS2339: Property 'product' does not exist on type 'OrderItem'.
+app/minha-conta/page.tsx(96,50): error TS2339: Property 'product' does not exist on type 'OrderItem'.
+app/minha-conta/page.tsx(188,22): error TS2339: Property 'birthdate' does not exist on type 'User'.
+app/minha-conta/page.tsx(192,25): error TS2339: Property 'promo_emails' does not exist on type 'User'.
+app/minha-conta/page.tsx(193,26): error TS2339: Property 'order_updates' does not exist on type 'User'.
+app/minha-conta/page.tsx(194,35): error TS2339: Property 'wishlist_notifications' does not exist on type 'User'.
+app/minha-conta/page.tsx(360,25): error TS2339: Property 'birthdate' does not exist on type 'User'.
+components/checkout/checkout-content.tsx(32,14): error TS2551: Property 'stripeEnableCards' does not exist on type 'PublicSettings'. Did you mean 'stripe_enable_cards'?
+components/checkout/checkout-content.tsx(33,14): error TS2551: Property 'stripeEnablePix' does not exist on type 'PublicSettings'. Did you mean 'stripe_enable_pix'?
+components/home/categories-section.tsx(5,10): error TS2724: '"@/lib/products"' has no exported member named 'categories'. Did you mean 'getCategories'?
+components/home/categories-section.tsx(15,26): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+components/home/more-products-section.tsx(3,10): error TS2724: '"@/lib/products"' has no exported member named 'products'. Did you mean 'Product'?
+components/home/more-products-section.tsx(30,33): error TS7006: Parameter 'product' implicitly has an 'any' type.
+components/home/promo-banner.tsx(11,16): error TS2551: Property 'stripeEnableCards' does not exist on type 'PublicSettings'. Did you mean 'stripe_enable_cards'?
+components/home/promo-banner.tsx(15,16): error TS2551: Property 'stripeEnablePix' does not exist on type 'PublicSettings'. Did you mean 'stripe_enable_pix'?
+lib/admin-settings.ts(103,43): error TS2551: Property 'fileName' does not exist on type 'Partial<BannerSetting>'. Did you mean 'file_name'?
+lib/products.ts(178,44): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'string | ProductImage | File | { size: string; sku_size?: string | undefined; quantity: number; }' is not assignable to parameter of type 'string | Blob'.
+      Type 'ProductImage' is not assignable to type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'string | ProductImage | File | { size: string; sku_size?: string | undefined; quantity: number; }' is not assignable to parameter of type 'string'.
+      Type 'ProductImage' is not assignable to type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'string | ProductImage | File | { size: string; sku_size?: string | undefined; quantity: number; }' is not assignable to parameter of type 'Blob'.
+      Type 'string' is not assignable to type 'Blob'.

@@ -10,10 +10,10 @@ export default function PaymentsAdminPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    getOrders()
-      .then(setOrders)
-      .catch(err => console.error("Error fetching payments data:", err))
-      .finally(() => setIsLoading(false))
+      getOrders()
+        .then(data => setOrders(data.results))
+        .catch(err => console.error("Error fetching payments data:", err))
+        .finally(() => setIsLoading(false))
   }, [])
 
   // Flatten all payments from all orders

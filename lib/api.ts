@@ -83,6 +83,7 @@ export async function apiFetch<T = unknown>(
 
   try {
     let response = await fetch(url, {
+      cache: "no-store",
       ...init,
       headers,
       body: body ? (isFormData ? body : typeof body === "string" ? body : JSON.stringify(body)) : undefined,
@@ -96,6 +97,7 @@ export async function apiFetch<T = unknown>(
       if (newToken) {
         headers["Authorization"] = `Bearer ${newToken}`
         response = await fetch(url, {
+          cache: "no-store",
           ...init,
           headers,
           body: body ? (isFormData ? body : typeof body === "string" ? body : JSON.stringify(body)) : undefined,
@@ -118,7 +120,9 @@ export async function apiFetch<T = unknown>(
         try {
           data = JSON.parse(text)
           if (data && typeof data === "object") {
-            if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+            if (Array.isArray(data)) {
+              message = data.map((e: any) => e.message || JSON.stringify(e)).join(" ")
+            } else if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
               message = data.errors.map((e: any) => e.message || JSON.stringify(e)).join(" ")
             } else if (data.detail) {
               message = data.detail

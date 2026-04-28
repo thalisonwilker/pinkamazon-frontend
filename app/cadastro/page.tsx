@@ -30,9 +30,12 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const getInputErrorClass = (id: string) => {
-    return touched[id] && fieldErrors[id] 
-      ? "border-red-500 focus:border-red-500 focus:ring-red-500/10" 
-      : "border-border focus:border-primary focus:ring-primary/10"
+    const hasError = touched[id] && fieldErrors[id]
+    const isValid = touched[id] && !fieldErrors[id] && formData[id as keyof typeof formData]
+    
+    if (hasError) return "border-red-500 focus:border-red-500 focus:ring-red-500/10 animate-shake"
+    if (isValid) return "border-green-500/50 focus:border-green-500 focus:ring-green-500/10"
+    return "border-border focus:border-primary focus:ring-primary/10"
   }
 
   const validateField = (name: string, value: string) => {
@@ -129,15 +132,50 @@ export default function RegisterPage() {
       if (errorObj && typeof errorObj === 'object') {
         finalMessage = errorObj.message || finalMessage
         
-        // Populate field-specific errors if available
-        if (errorObj.data && errorObj.data.errors && Array.isArray(errorObj.data.errors)) {
-          const newFieldErrors: Record<string, string> = { ...fieldErrors }
-          const newTouched: Record<string, boolean> = { ...touched }
+        // Extract error list either from direct array or .errors property
+        const errorList = Array.isArray(errorObj.data) 
+          ? errorObj.data 
+          : (errorObj.data && Array.isArray(errorObj.data.errors) ? errorObj.data.errors : null);
+
+        if (errorList) {
+          // Start with empty objects to ensure only current errors are shown
+          const newFieldErrors: Record<string, string> = {}
+          const newTouched: Record<string, boolean> = {}
+
+          errorList.forEach((errItem: any) => {
+            if (errItem.field && errItem.message) {
+              let fieldId = errItem.field.toLowerCase()
+              
+              // Map backend field names to frontend input IDs
+              if (fieldId === 'username') fieldId = 'email'
+              if (fieldId === 'cpf') fieldId = 'document'
+              
+              newFieldErrors[fieldId] = errItem.message
+              newTouched[fieldId] = true
+            }
+          })
           
-          errorObj.data.errors.forEach((err: any) => {
-            if (err.field) {
-              newFieldErrors[err.field] = err.message
-              newTouched[err.field] = true
+          setFieldErrors(newFieldErrors)
+          setTouched(newTouched)
+        } else if (errorObj.data && typeof errorObj.data === 'object') {
+          const newFieldErrors: Record<string, string> = {}
+          const newTouched: Record<string, boolean> = {}
+          
+          Object.entries(errorObj.data).forEach(([field, messages]) => {
+            let msg = ""
+            if (Array.isArray(messages) && messages.length > 0) {
+              msg = messages[0]
+            } else if (typeof messages === 'string') {
+              msg = messages
+            }
+
+            if (msg && typeof msg === 'string') {
+              let fieldId = field.toLowerCase()
+              if (fieldId === 'username') fieldId = 'email'
+              if (fieldId === 'cpf') fieldId = 'document'
+              
+              newFieldErrors[fieldId] = msg
+              newTouched[fieldId] = true
             }
           })
           
@@ -189,14 +227,14 @@ export default function RegisterPage() {
             </p>
             
             <div className="mt-16 flex flex-wrap justify-center gap-6">
-              <div className="rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20">
+              {/* <div className="rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20">
                 <p className="text-3xl font-bold text-white">10% OFF</p>
                 <p className="text-sm font-semibold text-white/80">Na primeira compra</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20">
+              </div> */}
+              {/* <div className="rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20">
                 <p className="text-3xl font-bold text-white">VIP</p>
                 <p className="text-sm font-semibold text-white/80">Lançamentos antecipados</p>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
@@ -205,9 +243,9 @@ export default function RegisterPage() {
       {/* Right side - Register form */}
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-20">
         <div className="mx-auto w-full max-w-md">
-          {/* Mobile Logo */}
-          <Link href="/" className="mb-8 inline-block lg:hidden">
-            <div className="relative h-12 w-32">
+          {/* Logo */}
+          <Link href="/" className="mb-8 inline-block">
+            <div className="relative h-16 w-40">
               <Image src="/images/logo.png" alt="Pink Amazon" fill className="object-contain" priority />
             </div>
           </Link>
